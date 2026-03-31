@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Users,
+  UserCheck,
   Gamepad2,
   GitBranch,
   Workflow,
@@ -34,6 +35,7 @@ import { getAgentDisplayName } from "@/config/branding";
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/agents", label: "Agents", icon: Users },
+  { href: "/collaborators", label: "Colaboradores", icon: UserCheck },
   { href: "/office", label: "🎮 Office", icon: Gamepad2, highlight: true },
   { href: "/actions", label: "Quick Actions", icon: Zap },
   { href: "/system", label: "System", icon: Server },
@@ -288,7 +290,7 @@ export function Sidebar() {
             className="px-4 py-2 text-xs"
             style={{ color: "var(--text-muted)" }}
           >
-            OpenClaw Agent
+            VertexOS
           </div>
 
           <button

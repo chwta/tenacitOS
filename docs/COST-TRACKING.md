@@ -1,186 +1,119 @@
-# Cost Tracking System
+# Cost Tracking
 
-Mission Control now tracks real usage costs by reading OpenClaw session data and calculating costs based on actual token usage.
+TenacitOS displays real cost analytics sourced directly from the VertexOS `usage_log` PostgreSQL table. No scripts, no SQLite, no manual data collection — costs are recorded by VertexOS automatically on every conversation turn.
+
+---
 
 ## How It Works
 
-1. **Data Collection**: The `collect-usage.ts` script reads `openclaw status --json` to get current session data
-2. **Cost Calculation**: Uses model pricing table to calculate costs based on input/output tokens
-3. **Storage**: Saves snapshots to SQLite database (`data/usage-tracking.db`)
-4. **API**: The `/api/costs` endpoint queries the database to serve real cost data to the dashboard
+1. **Recording**: VertexOS writes a row to `usage_log` for every session turn — agent ID, model, input tokens, output tokens, and calculated cost.
+2. **API**: The VertexOS web backend exposes `GET /api/v1/usage` with aggregations pre-computed in SQL.
+3. **Dashboard**: TenacitOS's `/api/costs` route calls `getUsage()` from `vertexos-client.ts` and maps the response to the shape expected by the Costs page components.
 
-## Model Pricing
+---
 
-Current pricing (as of Feb 2026):
+## Data Available
 
-| Model | Input ($/M tokens) | Output ($/M tokens) |
-|-------|-------------------|---------------------|
-| Opus 4.6 | $15.00 | $75.00 |
-| Sonnet 4.5 | $3.00 | $15.00 |
-| Haiku 3.5 | $0.80 | $4.00 |
-| Gemini Flash | $0.15 | $0.60 |
-| Gemini Pro | $1.25 | $5.00 |
-| Grok 4.1 Fast | $2.00 | $10.00 |
+The `GET /api/v1/usage` endpoint returns:
 
-Pricing is defined in `src/lib/pricing.ts`.
-
-## Manual Collection
-
-To collect usage data manually:
-
-```bash
-cd /root/.openclaw/workspace/mission-control
-npx tsx scripts/collect-usage.ts
-```
-
-This will:
-- Read current OpenClaw session data
-- Calculate costs for each agent + model combination
-- Save a snapshot to the database (replacing any existing data for the same hour)
-
-## Automatic Collection (Cron)
-
-To set up hourly automatic collection:
-
-```bash
-cd /root/.openclaw/workspace/mission-control
-./scripts/setup-cron.sh
-```
-
-This adds a cron job that runs every hour at minute 0.
-
-**View cron jobs:**
-```bash
-crontab -l
-```
-
-**View logs:**
-```bash
-tail -f /var/log/mission-control-usage.log
-```
-
-**Remove cron job:**
-```bash
-crontab -e
-# Delete the line containing 'collect-usage.ts'
-```
-
-## Database Schema
-
-```sql
-CREATE TABLE usage_snapshots (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  timestamp INTEGER NOT NULL,
-  date TEXT NOT NULL,           -- YYYY-MM-DD
-  hour INTEGER NOT NULL,         -- 0-23
-  agent_id TEXT NOT NULL,
-  model TEXT NOT NULL,
-  input_tokens INTEGER NOT NULL,
-  output_tokens INTEGER NOT NULL,
-  total_tokens INTEGER NOT NULL,
-  cost REAL NOT NULL,
-  created_at INTEGER DEFAULT (strftime('%s', 'now'))
-);
-```
-
-## Querying the Database
-
-**Total cost today:**
-```bash
-sqlite3 data/usage-tracking.db \
-  "SELECT SUM(cost) FROM usage_snapshots WHERE date = date('now');"
-```
-
-**Cost by agent (last 30 days):**
-```bash
-sqlite3 data/usage-tracking.db \
-  "SELECT agent_id, ROUND(SUM(cost), 2) as cost 
-   FROM usage_snapshots 
-   WHERE date >= date('now', '-30 days')
-   GROUP BY agent_id 
-   ORDER BY cost DESC;"
-```
-
-**Cost by model:**
-```bash
-sqlite3 data/usage-tracking.db \
-  "SELECT model, ROUND(SUM(cost), 2) as cost 
-   FROM usage_snapshots 
-   WHERE date >= date('now', '-30 days')
-   GROUP BY model 
-   ORDER BY cost DESC;"
-```
-
-**Daily trend (last 7 days):**
-```bash
-sqlite3 data/usage-tracking.db \
-  "SELECT date, ROUND(SUM(cost), 2) as cost 
-   FROM usage_snapshots 
-   WHERE date >= date('now', '-7 days')
-   GROUP BY date 
-   ORDER BY date DESC;"
-```
-
-## API Endpoints
-
-### GET /api/costs
-
-Returns cost summary, breakdowns, and trends.
-
-**Query params:**
-- `timeframe` (default: `30d`) - Number of days to include in aggregations
-
-**Response:**
 ```json
 {
-  "today": 0.80,
+  "today":     0.80,
   "yesterday": 1.25,
-  "thisMonth": 12.50,
-  "lastMonth": 38.90,
-  "projected": 52.30,
-  "budget": 100.00,
+  "month":     12.50,
   "byAgent": [
-    { "agent": "main", "cost": 5.50, "tokens": 450000, "percentOfTotal": 44 }
+    { "agent_id": "main", "total_cost": 5.50, "total_tokens": 450000 }
   ],
   "byModel": [
-    { "model": "anthropic/claude-sonnet-4-5", "cost": 8.30, "tokens": 890000, "percentOfTotal": 66 }
+    { "model": "anthropic/claude-sonnet-4-6", "total_cost": 8.30, "total_tokens": 890000 }
   ],
   "daily": [
-    { "date": "02-20", "cost": 0.80, "input": 12000, "output": 8000 }
-  ],
-  "hourly": [
-    { "hour": "14:00", "cost": 0.12 }
+    { "date": "2026-03-31", "total_cost": 0.80, "input_tokens": 12000, "output_tokens": 8000 }
   ]
 }
 ```
 
-## Troubleshooting
-
-**No data showing up:**
-- Run `npx tsx scripts/collect-usage.ts` to collect initial data
-- Check database exists: `ls -lh data/usage-tracking.db`
-- Query database: `sqlite3 data/usage-tracking.db "SELECT COUNT(*) FROM usage_snapshots;"`
-
-**Unknown model warnings:**
-- Update `src/lib/pricing.ts` with new model pricing
-- Rebuild: `npm run build`
-- Restart: `systemctl restart mission-control`
-
-**Costs seem wrong:**
-- Verify pricing in `src/lib/pricing.ts`
-- Check token counts: `openclaw status --json | jq '.sessions.byAgent[].recent[].totalTokens'`
-- Recalculate: delete database and re-collect
-
-## Future Enhancements
-
-- [ ] Budget alerts (email/Telegram when >80% spent)
-- [ ] Export reports (PDF/CSV)
-- [ ] Cost forecasting with ML
-- [ ] Per-session cost tracking (not just agent totals)
-- [ ] Integration with OpenRouter billing API for real invoices
-- [ ] Cost optimization suggestions ("switch to Haiku for heartbeats")
+The `/api/costs` route adds:
+- `projected` — estimated monthly cost based on days elapsed
+- `budget` — configurable budget cap (default: $100)
+- Percentage breakdowns per agent and model
 
 ---
 
-**Created:** 2026-02-20  
-**Author:** Tenacitas 🦞
+## Model Pricing
+
+Pricing is defined in `src/lib/pricing.ts`:
+
+| Model | Input ($/M tokens) | Output ($/M tokens) |
+|---|---|---|
+| claude-opus-4-6 | $15.00 | $75.00 |
+| claude-sonnet-4-6 | $3.00 | $15.00 |
+| claude-haiku-4-5 | $0.80 | $4.00 |
+| gemini-flash | $0.15 | $0.60 |
+| gemini-pro | $1.25 | $5.00 |
+
+VertexOS computes costs at write time using the same pricing table in `pkg/usage/model.go`. The dashboard uses `pricing.ts` only for display formatting.
+
+---
+
+## Database Schema
+
+The `usage_log` table (created by migration `007`):
+
+```sql
+CREATE TABLE usage_log (
+  id           BIGSERIAL PRIMARY KEY,
+  session_id   TEXT NOT NULL,
+  agent_id     TEXT NOT NULL,
+  model        TEXT NOT NULL,
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd     NUMERIC(10,6) NOT NULL DEFAULT 0,
+  recorded_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+---
+
+## Querying Directly (PostgreSQL)
+
+**Total cost today:**
+```sql
+SELECT SUM(cost_usd)
+FROM usage_log
+WHERE recorded_at >= CURRENT_DATE;
+```
+
+**Cost by agent (last 30 days):**
+```sql
+SELECT agent_id, ROUND(SUM(cost_usd)::numeric, 4) AS cost
+FROM usage_log
+WHERE recorded_at >= NOW() - INTERVAL '30 days'
+GROUP BY agent_id
+ORDER BY cost DESC;
+```
+
+**Daily trend:**
+```sql
+SELECT DATE(recorded_at) AS day, ROUND(SUM(cost_usd)::numeric, 4) AS cost
+FROM usage_log
+WHERE recorded_at >= NOW() - INTERVAL '30 days'
+GROUP BY day
+ORDER BY day DESC;
+```
+
+---
+
+## Troubleshooting
+
+**Costs page shows zeros**
+
+- Verify `VERTEXOS_API_URL` is set correctly in `.env.local`
+- Confirm VertexOS is running: `curl http://localhost:18800/api/v1/usage`
+- Confirm `VERTEXOS_DB_DSN` is set in VertexOS's `.env`
+- Check VertexOS logs for database connection errors
+
+**Costs seem wrong**
+
+- Update pricing in `src/lib/pricing.ts` to match current OpenRouter rates
+- The source of truth for stored costs is VertexOS's `pkg/usage/model.go`

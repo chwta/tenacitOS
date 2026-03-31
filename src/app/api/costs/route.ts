@@ -1,90 +1,82 @@
+/**
+ * GET  /api/costs          → usage summary from VertexOS PostgreSQL
+ * POST /api/costs          → (stub) budget update — not yet persisted
+ */
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
-import {
-  getDatabase,
-  getCostSummary,
-  getCostByAgent,
-  getCostByModel,
-  getDailyCost,
-  getHourlyCost,
-} from "@/lib/usage-queries";
-import path from "path";
+import { getUsage } from "@/lib/vertexos-client";
 
-const DB_PATH = path.join(process.cwd(), "data", "usage-tracking.db");
-const DEFAULT_BUDGET = 100.0; // Default budget in USD
+export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const timeframe = searchParams.get("timeframe") || "30d";
+const DEFAULT_BUDGET = 100.0;
 
-  // Parse timeframe to days
-  const days = parseInt(timeframe.replace(/\D/g, ""), 10) || 30;
-
+export async function GET(_request: NextRequest) {
   try {
-    const db = getDatabase(DB_PATH);
+    const usage = await getUsage();
 
-    if (!db) {
-      // Database doesn't exist yet - return zeros
-      return NextResponse.json({
-        today: 0,
-        yesterday: 0,
-        thisMonth: 0,
-        lastMonth: 0,
-        projected: 0,
-        budget: DEFAULT_BUDGET,
-        byAgent: [],
-        byModel: [],
-        daily: [],
-        hourly: [],
-        message: "No usage data collected yet. Run collect-usage script first.",
-      });
-    }
+    // Map VertexOS format → shape expected by the existing cost page components
+    const byAgent = usage.by_agent.map((a) => ({
+      agent: a.key,
+      totalTokens: a.total_tokens,
+      cost: a.estimated_cost_usd,
+      calls: a.calls,
+    }));
 
-    // Get all the data
-    const summary = getCostSummary(db);
-    const byAgent = getCostByAgent(db, days);
-    const byModel = getCostByModel(db, days);
-    const daily = getDailyCost(db, days);
-    const hourly = getHourlyCost(db);
+    const byModel = usage.by_model.map((m) => ({
+      model: m.key,
+      totalTokens: m.total_tokens,
+      cost: m.estimated_cost_usd,
+      calls: m.calls,
+    }));
 
-    db.close();
+    const daily = usage.daily.map((d) => ({
+      date: d.date,
+      cost: d.estimated_cost_usd,
+      tokens: d.total_tokens,
+    }));
+
+    // Projected monthly cost: proportional from days elapsed this month
+    const dayOfMonth = new Date().getDate();
+    const projected =
+      dayOfMonth > 0 ? (usage.this_month / dayOfMonth) * 30 : 0;
 
     return NextResponse.json({
-      ...summary,
+      today: usage.today,
+      yesterday: usage.yesterday,
+      thisMonth: usage.this_month,
+      lastMonth: 0, // not tracked — would need additional query
+      projected: Math.round(projected * 10000) / 10000,
       budget: DEFAULT_BUDGET,
       byAgent,
       byModel,
       daily,
-      hourly,
+      hourly: [], // not currently tracked at hourly granularity
     });
-  } catch (error) {
-    console.error("Error fetching cost data:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch cost data" },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("[/api/costs]", err);
+    // Return zeros so the UI still renders without crashing
+    return NextResponse.json({
+      today: 0,
+      yesterday: 0,
+      thisMonth: 0,
+      lastMonth: 0,
+      projected: 0,
+      budget: DEFAULT_BUDGET,
+      byAgent: [],
+      byModel: [],
+      daily: [],
+      hourly: [],
+      message: "VertexOS usage data unavailable. Check VERTEXOS_API_URL and VERTEXOS_DB_DSN.",
+    });
   }
 }
 
-// POST endpoint to update budget
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { budget, alerts } = body;
-
-    // In production, save to database
-    // For now, just return success
-    
-    return NextResponse.json({
-      success: true,
-      budget,
-      alerts,
-    });
-  } catch (error) {
-    console.error("Error updating budget:", error);
-    return NextResponse.json(
-      { error: "Failed to update budget" },
-      { status: 500 }
-    );
+    // TODO: persist budget/alerts to VertexOS config
+    return NextResponse.json({ success: true, budget: body.budget, alerts: body.alerts });
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 }

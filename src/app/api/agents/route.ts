@@ -1,147 +1,84 @@
+/**
+ * GET /api/agents
+ *
+ * Reads agents from VertexOS config.json via the VertexOS API, then enriches
+ * each agent with live status data from the enterprise usage endpoint.
+ */
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
-import { join } from "path";
+import {
+  getConfig,
+  getAgentsStatus,
+  type AgentConfig,
+  type AgentStatus,
+} from "@/lib/vertexos-client";
 
 export const dynamic = "force-dynamic";
 
-interface Agent {
+// Stable default colours for agents without explicit ui.color
+const PALETTE = [
+  "#ff6b35", "#4ecdc4", "#45b7d1", "#96ceb4",
+  "#feca57", "#ff9ff3", "#54a0ff", "#5f27cd",
+];
+
+interface AgentOut {
   id: string;
-  name?: string;
+  name: string;
   emoji: string;
   color: string;
+  role: string;
+  department: string;
   model: string;
-  workspace: string;
-  dmPolicy?: string;
-  allowAgents?: string[];
-  allowAgentsDetails?: Array<{
-    id: string;
-    name: string;
-    emoji: string;
-    color: string;
-  }>;
-  botToken?: string;
-  status: "online" | "offline";
-  lastActivity?: string;
-  activeSessions: number;
-}
-
-// Fallback config used when an agent doesn't define its own ui config in openclaw.json.
-// The main agent reads name/emoji from env vars; all others fall back to generic defaults.
-// Override via each agent's openclaw.json → ui.emoji / ui.color / name fields.
-const DEFAULT_AGENT_CONFIG: Record<string, { emoji: string; color: string; name?: string }> = {
-  main: {
-    emoji: process.env.NEXT_PUBLIC_AGENT_EMOJI || "🤖",
-    color: "#ff6b35",
-    name: process.env.NEXT_PUBLIC_AGENT_NAME || "Mission Control",
-  },
-};
-
-/**
- * Get agent display info (emoji, color, name) from openclaw.json or defaults
- */
-function getAgentDisplayInfo(agentId: string, agentConfig: any): { emoji: string; color: string; name: string } {
-  // First try to get from agent's own config in openclaw.json
-  const configEmoji = agentConfig?.ui?.emoji;
-  const configColor = agentConfig?.ui?.color;
-  const configName = agentConfig?.name;
-
-  // Then try defaults
-  const defaults = DEFAULT_AGENT_CONFIG[agentId];
-
-  return {
-    emoji: configEmoji || defaults?.emoji || "🤖",
-    color: configColor || defaults?.color || "#666666",
-    name: configName || defaults?.name || agentId,
-  };
+  skills: string[];
+  allowAgents: string[];
+  status: "online" | "idle" | "offline";
+  lastSeen: string | null;
+  todayTokens: number;
+  todayCalls: number;
+  activeTasks: number;
 }
 
 export async function GET() {
   try {
-    // Read openclaw config
-    const configPath = (process.env.OPENCLAW_DIR || "/root/.openclaw") + "/openclaw.json";
-    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    const [config, statusList] = await Promise.all([
+      getConfig(),
+      getAgentsStatus().catch(() => [] as AgentStatus[]),
+    ]);
 
-    // Get agents from config
-    const agents: Agent[] = config.agents.list.map((agent: any) => {
-      const agentInfo = getAgentDisplayInfo(agent.id, agent);
+    const statusMap = new Map<string, AgentStatus>(
+      statusList.map((s) => [s.agent_id, s])
+    );
 
-      // Get telegram account info
-      const telegramAccount =
-        config.channels?.telegram?.accounts?.[agent.id];
-      const botToken = telegramAccount?.botToken;
+    const defaultModel =
+      config.agents?.defaults?.model?.primary ?? "unknown";
 
-      // Check if agent has recent activity
-      const memoryPath = join(agent.workspace, "memory");
-      let lastActivity = undefined;
-      let status: "online" | "offline" = "offline";
+    const agentList: AgentConfig[] = config.agents?.list ?? [];
 
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const memoryFile = join(memoryPath, `${today}.md`);
-        const stat = require("fs").statSync(memoryFile);
-        lastActivity = stat.mtime.toISOString();
-        // Consider online if activity within last 5 minutes
-        status =
-          Date.now() - stat.mtime.getTime() < 5 * 60 * 1000
-            ? "online"
-            : "offline";
-      } catch (e) {
-        // No recent activity
-      }
-
-      // Get details of allowed subagents
-      const allowAgents = agent.subagents?.allowAgents || [];
-      const allowAgentsDetails = allowAgents.map((subagentId: string) => {
-        // Find subagent in config
-        const subagentConfig = config.agents.list.find(
-          (a: any) => a.id === subagentId
-        );
-        if (subagentConfig) {
-          const subagentInfo = getAgentDisplayInfo(subagentId, subagentConfig);
-          return {
-            id: subagentId,
-            name: subagentConfig.name || subagentInfo.name,
-            emoji: subagentInfo.emoji,
-            color: subagentInfo.color,
-          };
-        }
-        // Fallback if subagent not found in config
-        const fallbackInfo = getAgentDisplayInfo(subagentId, null);
-        return {
-          id: subagentId,
-          name: fallbackInfo.name,
-          emoji: fallbackInfo.emoji,
-          color: fallbackInfo.color,
-        };
-      });
-
+    const agents: AgentOut[] = agentList.map((a, idx) => {
+      const live = statusMap.get(a.id);
       return {
-        id: agent.id,
-        name: agent.name || agentInfo.name,
-        emoji: agentInfo.emoji,
-        color: agentInfo.color,
-        model:
-          agent.model?.primary || config.agents.defaults.model.primary,
-        workspace: agent.workspace,
-        dmPolicy:
-          telegramAccount?.dmPolicy ||
-          config.channels?.telegram?.dmPolicy ||
-          "pairing",
-        allowAgents,
-        allowAgentsDetails,
-        botToken: botToken ? "configured" : undefined,
-        status,
-        lastActivity,
-        activeSessions: 0, // TODO: get from sessions API
+        id: a.id,
+        name: a.name ?? a.id,
+        emoji: a.ui?.emoji ?? "🤖",
+        color: a.ui?.color ?? PALETTE[idx % PALETTE.length],
+        role: a.role ?? "general",
+        department: a.department ?? "",
+        model: a.model?.primary ?? defaultModel,
+        skills: a.skills ?? [],
+        allowAgents: a.subagents?.allow_agents ?? [],
+        status: live?.status ?? "offline",
+        lastSeen: live?.last_seen ?? null,
+        todayTokens: live?.today_tokens ?? 0,
+        todayCalls: live?.today_calls ?? 0,
+        activeTasks: live?.active_tasks ?? 0,
       };
     });
 
     return NextResponse.json({ agents });
-  } catch (error) {
-    console.error("Error reading agents:", error);
+  } catch (err) {
+    console.error("[/api/agents]", err);
     return NextResponse.json(
-      { error: "Failed to load agents" },
-      { status: 500 }
+      { error: "Failed to load agents from VertexOS" },
+      { status: 502 }
     );
   }
 }
