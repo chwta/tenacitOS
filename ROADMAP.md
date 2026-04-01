@@ -25,22 +25,39 @@
 
 ---
 
-## In Progress — v2.1.0 (Sprint 2)
+## Completed — v2.1.0 (Sprint 2)
 
 ### New Pages
-- [ ] `/departments` — CRUD page for managing organizational structure
-- [ ] `/tasks` — task board (kanban: pending / in-progress / done / blocked)
-- [ ] `/agents/:id` — agent detail (memory, sessions, cron jobs, skills, token history)
+- [x] `/departments` — CRUD page for managing organizational structure
+- [x] `/tasks` — kanban board (5 cols: pending / in_progress / done / failed / cancelled, 15s auto-refresh)
+- [x] Token issuance UI — generate VertexBridge JWT for a collaborator (`/api/collaborators/[id]/tokens`)
 
-### Improvements
-- [ ] Settings page wired to VertexOS config API (edit agents, models, channels)
-- [ ] Token issuance UI — generate VertexBridge JWT for a collaborator
-- [ ] Token revocation from Collaborators page
-- [ ] Real-time agent status via SSE (replace polling)
+### Backend
+- [x] Tasks POST/PUT/DELETE handlers in `enterprise.go`
+- [x] Collaborator token endpoints (GET/POST/DELETE)
+
+### Navigation
+- [x] Departments and Tarefas added to Sidebar and Dock
 
 ---
 
-## Planned — v2.2.0
+## Completed — v2.2.0 (Sprint 3)
+
+### Agent Detail
+- [x] `/agents/[id]` — hero card (status, last seen), stats grid (tokens today/month, calls, tasks), tabbed view (Tarefas / Memória)
+- [x] `GET /api/v1/agents/:id` — backend handler with usage stats, task counts, memory facts, recent tasks
+
+### Knowledge Base
+- [x] `/knowledge` — search + scope filter, paginated list, split-panel detail view, create modal, delete confirmation
+- [x] `GET/POST/DELETE /api/v1/knowledge` — backend with real OFFSET pagination and total count
+- [x] Knowledge Base added to Sidebar and Dock
+
+### Branding
+- [x] OpenClaw → VertexOS across all 30+ files (PT-BR UI strings, removed lobster emoji)
+
+---
+
+## Planned — v2.3.0
 
 ### Analytics
 - [ ] Cost forecasting — projected monthly spend
@@ -49,9 +66,8 @@
 - [ ] Export reports (CSV / PDF)
 
 ### Knowledge Base
-- [ ] Document upload UI → VertexOS RAG ingestion
-- [ ] Knowledge search playground
-- [ ] Scope assignment per document (global / department / agent)
+- [ ] Document upload UI → VertexOS RAG ingestion (multipart/form-data → chunking pipeline)
+- [ ] Knowledge search playground (semantic similarity, not just ILIKE)
 
 ### Office 3D Improvements
 - [ ] Agent activity animations (typing, thinking, error states)
@@ -80,4 +96,4 @@
 
 ---
 
-*Version 2.0.0 — 2026-03-31*
+*Version 2.2.0 — 2026-04-01*
