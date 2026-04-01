@@ -12,12 +12,13 @@ import VoxelMacMini from './VoxelMacMini';
 
 interface AgentDeskProps {
   agent: AgentConfig;
-  state: AgentState;
+  state?: AgentState;
   onClick: () => void;
   isSelected: boolean;
 }
 
-export default function AgentDesk({ agent, state, onClick, isSelected }: AgentDeskProps) {
+export default function AgentDesk({ agent, state: stateProp, onClick, isSelected }: AgentDeskProps) {
+  const state: AgentState = stateProp ?? { id: agent.id, status: 'idle', tokensPerHour: 0, tasksInQueue: 0, uptime: 0 };
   const deskRef = useRef<Mesh>(null);
   const monitorRef = useRef<Mesh>(null);
   const [hovered, setHovered] = useState(false);
