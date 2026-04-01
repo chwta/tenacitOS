@@ -31,6 +31,7 @@ import {
   History,
   Building2,
   LayoutList,
+  BookOpen,
 } from "lucide-react";
 import { getAgentDisplayName } from "@/config/branding";
 
@@ -40,6 +41,7 @@ const navItems = [
   { href: "/departments", label: "Departamentos", icon: Building2 },
   { href: "/collaborators", label: "Colaboradores", icon: UserCheck },
   { href: "/tasks", label: "Tarefas", icon: LayoutList },
+  { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { href: "/office", label: "🎮 Office", icon: Gamepad2, highlight: true },
   { href: "/actions", label: "Quick Actions", icon: Zap },
   { href: "/system", label: "System", icon: Server },
@@ -214,7 +216,7 @@ export function Sidebar() {
               letterSpacing: "-0.5px",
             }}
           >
-            Mission Control
+            VertexOS
           </h1>
         </div>
 

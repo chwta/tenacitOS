@@ -4,7 +4,7 @@ import { useState } from "react";
 
 const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif)$/i;
 // Match absolute paths to image files
-const IMAGE_PATH_RE = /((?:\/root\/\.openclaw|\/[\w/.-]+\/\.openclaw)\/(?:workspace|media)\/\S+?\.(png|jpe?g|webp|gif))/gi;
+const IMAGE_PATH_RE = /((?:\/root\/\.vertexos|\/[\w/.-]+\/\.vertexos)\/(?:workspace|media)\/\S+?\.(png|jpe?g|webp|gif))/gi;
 // Match MEDIA:/path/to/file pattern
 const MEDIA_RE = /MEDIA:(\/\S+?\.(png|jpe?g|webp|gif))(?:\s|$)/gi;
 

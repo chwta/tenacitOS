@@ -5,7 +5,7 @@ import { join } from "path";
 export const dynamic = "force-dynamic";
 
 const AGENT_CONFIG = {
-  main: { emoji: "🦞", color: "#ff6b35", name: "Tenacitas", role: "Boss" },
+  main: { emoji: "🏢", color: "#ff6b35", name: "Tenacitas", role: "Boss" },
   academic: {
     emoji: "🎓",
     color: "#4ade80",
@@ -62,7 +62,7 @@ async function getAgentStatusFromGateway(): Promise<
   Record<string, { isActive: boolean; currentTask: string; lastSeen: number }>
 > {
   try {
-    const configPath = (process.env.OPENCLAW_DIR || "/root/.openclaw") + "/openclaw.json";
+    const configPath = (process.env.VERTEXOS_DIR || "/root/.vertexos") + "/config.json";
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
     const gatewayToken = config.gateway?.auth?.token;
 
@@ -183,7 +183,7 @@ function getAgentStatusFromFiles(
 
 export async function GET() {
   try {
-    const configPath = (process.env.OPENCLAW_DIR || "/root/.openclaw") + "/openclaw.json";
+    const configPath = (process.env.VERTEXOS_DIR || "/root/.vertexos") + "/config.json";
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
 
     // Try gateway first, fallback to file-based

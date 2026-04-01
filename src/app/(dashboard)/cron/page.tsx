@@ -101,7 +101,7 @@ export default function CronJobsPage() {
             Cron Jobs
           </h1>
           <p className="text-sm md:text-base" style={{ color: 'var(--text-secondary)' }}>
-            Scheduled tasks from OpenClaw Gateway
+            Tarefas agendadas do VertexOS Gateway
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -270,7 +270,7 @@ export default function CronJobsPage() {
             No cron jobs found
           </h3>
           <p style={{ color: 'var(--text-secondary)' }}>
-            Create cron jobs via Telegram or the OpenClaw CLI
+            Create cron jobs via Telegram or the VertexOS CLI
           </p>
         </div>
       ) : viewMode === "timeline" ? (

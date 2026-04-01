@@ -11,8 +11,8 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // Read openclaw config
-    const configPath = (process.env.OPENCLAW_DIR || "/root/.openclaw") + "/openclaw.json";
+    // Read vertexos config
+    const configPath = (process.env.VERTEXOS_DIR || "/root/.vertexos") + "/config.json";
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
 
     // Find agent
@@ -45,7 +45,7 @@ export async function GET(
       // Memory directory doesn't exist
     }
 
-    // Get session info (from OpenClaw API if available)
+    // Get session info (from VertexOS API if available)
     // For now, we return mock data
     const sessions: Array<any> = [];
 

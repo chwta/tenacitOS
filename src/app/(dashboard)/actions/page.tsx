@@ -49,7 +49,7 @@ const ACTIONS: QuickAction[] = [
   {
     id: "restart-gateway",
     label: "Restart Gateway",
-    description: "Restart the OpenClaw gateway service",
+    description: "Reiniciar o serviço VertexOS gateway",
     icon: RotateCcw,
     color: "var(--warning, #f59e0b)",
     dangerous: true,

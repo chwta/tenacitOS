@@ -10,7 +10,7 @@ import { logActivity } from '@/lib/activities-db';
 
 const execAsync = promisify(exec);
 
-const WORKSPACE = process.env.OPENCLAW_DIR ? `${process.env.OPENCLAW_DIR}/workspace` : '/root/.openclaw/workspace';
+const WORKSPACE = process.env.VERTEXOS_DIR ? `${process.env.VERTEXOS_DIR}/workspace` : '/root/.vertexos/workspace';
 
 interface ActionResult {
   action: string;
@@ -48,11 +48,11 @@ async function runAction(action: string): Promise<ActionResult> {
       }
 
       case 'restart-gateway': {
-        const { stdout, stderr } = await execAsync('systemctl restart openclaw-gateway 2>&1 || echo "Service not found"');
+        const { stdout, stderr } = await execAsync('systemctl restart vertexos-gateway 2>&1 || echo "Service not found"');
         output = stdout || stderr || 'Restart command executed';
         // Also check status
         try {
-          const { stdout: status } = await execAsync('systemctl is-active openclaw-gateway 2>&1 || echo "unknown"');
+          const { stdout: status } = await execAsync('systemctl is-active vertexos-gateway 2>&1 || echo "unknown"');
           output += `\nStatus: ${status.trim()}`;
         } catch {}
         break;

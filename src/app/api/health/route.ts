@@ -59,10 +59,10 @@ export async function GET() {
   // Internal services
   const [missionControl, gateway] = await Promise.all([
     checkSystemdService('mission-control'),
-    checkSystemdService('openclaw-gateway'),
+    checkSystemdService('vertexos-gateway'),
   ]);
-  checks.push({ ...missionControl, name: 'Mission Control' });
-  checks.push({ ...gateway, name: 'OpenClaw Gateway' });
+  checks.push({ ...missionControl, name: 'VertexOS' });
+  checks.push({ ...gateway, name: 'VertexOS Gateway' });
 
   // PM2 services
   const pm2Services = ['classvault', 'content-vault', 'brain'];

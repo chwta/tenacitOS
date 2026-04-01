@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     let runs: RunEntry[] = [];
 
     try {
-      const output = execSync(`openclaw cron runs ${id} --json 2>/dev/null`, {
+      const output = execSync(`vertexos cron runs ${id} --json 2>/dev/null`, {
         timeout: 10000,
         encoding: "utf-8",
       });

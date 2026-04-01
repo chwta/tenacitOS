@@ -3,9 +3,9 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 
-import { OPENCLAW_WORKSPACE, WORKSPACE_IDENTITY } from '@/lib/paths';
+import { VERTEXOS_WORKSPACE, WORKSPACE_IDENTITY } from '@/lib/paths';
 
-const WORKSPACE_PATH = OPENCLAW_WORKSPACE;
+const WORKSPACE_PATH = VERTEXOS_WORKSPACE;
 const IDENTITY_PATH = WORKSPACE_IDENTITY;
 const ENV_LOCAL_PATH = path.join(process.cwd(), '.env.local');
 
@@ -22,20 +22,20 @@ function parseIdentityMd(): { name: string; creature: string; emoji: string } {
       emoji: emojiMatch?.[1]?.match(/./u)?.[0] || '🤖',
     };
   } catch {
-    return { name: 'OpenClaw Agent', creature: 'AI Agent', emoji: '🤖' };
+    return { name: 'VertexOS Agent', creature: 'AI Agent', emoji: '🤖' };
   }
 }
 
 function getIntegrationStatus() {
   const integrations = [];
 
-  // Telegram — read from openclaw.json (channels.telegram)
+  // Telegram — read from config.json (channels.telegram)
   let telegramEnabled = false;
   let telegramAccounts = 0;
   try {
-    const openclawConfigPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
-    const openclawConfig = JSON.parse(fs.readFileSync(openclawConfigPath, 'utf-8'));
-    const telegramConfig = openclawConfig?.channels?.telegram;
+    const vertexosConfigPath = path.join(os.homedir(), '.vertexos', 'config.json');
+    const vertexosConfig = JSON.parse(fs.readFileSync(vertexosConfigPath, 'utf-8'));
+    const telegramConfig = vertexosConfig?.channels?.telegram;
     telegramEnabled = !!(telegramConfig?.enabled);
     if (telegramConfig?.accounts) {
       telegramAccounts = Object.keys(telegramConfig.accounts).length;
@@ -66,13 +66,13 @@ function getIntegrationStatus() {
     detail: null,
   });
 
-  // Google (gog/google-gemini-cli-auth) — check openclaw.json plugins
+  // Google (gog/google-gemini-cli-auth) — check config.json plugins
   let googleConfigured = false;
   let googleDetail: string | null = null;
   try {
-    const openclawConfigPath = path.join(os.homedir(), '.openclaw', 'openclaw.json');
-    const openclawConfig = JSON.parse(fs.readFileSync(openclawConfigPath, 'utf-8'));
-    const gogPlugin = openclawConfig?.plugins?.entries?.['google-gemini-cli-auth'];
+    const vertexosConfigPath = path.join(os.homedir(), '.vertexos', 'config.json');
+    const vertexosConfig = JSON.parse(fs.readFileSync(vertexosConfigPath, 'utf-8'));
+    const gogPlugin = vertexosConfig?.plugins?.entries?.['google-gemini-cli-auth'];
     googleConfigured = !!(gogPlugin?.enabled);
     if (googleConfigured) googleDetail = 'google-gemini-cli-auth plugin enabled';
   } catch {}
@@ -99,7 +99,7 @@ export async function GET() {
   const identity = parseIdentityMd();
   const uptime = process.uptime();
   const nodeVersion = process.version;
-  const model = process.env.OPENCLAW_MODEL || process.env.DEFAULT_MODEL || 'anthropic/claude-sonnet-4';
+  const model = process.env.VERTEXOS_MODEL || process.env.DEFAULT_MODEL || 'anthropic/claude-sonnet-4';
   
   const systemInfo = {
     agent: {

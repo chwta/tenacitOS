@@ -20,7 +20,7 @@ interface FrontMatter {
   description?: string;
   homepage?: string;
   metadata?: {
-    openclaw?: {
+    vertexos?: {
       emoji?: string;
     };
   };
@@ -38,8 +38,8 @@ interface SkillsConfig {
 }
 
 const CONFIG_PATH = path.join(process.cwd(), 'data', 'configured-skills.json');
-const DEFAULT_SYSTEM_PATH = '/usr/lib/node_modules/openclaw/skills';
-const DEFAULT_WORKSPACE_PATH = (process.env.OPENCLAW_DIR || '/root/.openclaw') + '/workspace-infra/skills';
+const DEFAULT_SYSTEM_PATH = '/usr/lib/node_modules/vertexos/skills';
+const DEFAULT_WORKSPACE_PATH = (process.env.VERTEXOS_DIR || '/root/.vertexos') + '/workspace-infra/skills';
 
 /**
  * Parse SKILL.md front matter (YAML between --- delimiters)
@@ -67,7 +67,7 @@ function parseFrontMatter(content: string): { frontMatter: FrontMatter; body: st
   
   const emojiMatch = yamlContent.match(/"emoji":\s*"([^"]+)"/);
   if (emojiMatch) {
-    frontMatter.metadata = { openclaw: { emoji: emojiMatch[1] } };
+    frontMatter.metadata = { vertexos: { emoji: emojiMatch[1] } };
   }
   
   return { frontMatter, body };
@@ -159,7 +159,7 @@ export function parseSkill(skillPath: string, skillName: string, agents: string[
       location: skillPath,
       source,
       homepage: frontMatter.homepage,
-      emoji: frontMatter.metadata?.openclaw?.emoji,
+      emoji: frontMatter.metadata?.vertexos?.emoji,
       fileCount: count,
       fullContent: content,
       files,
@@ -175,25 +175,25 @@ export function parseSkill(skillPath: string, skillName: string, agents: string[
  */
 function buildAgentSkillMap(): Map<string, string[]> {
   const map = new Map<string, string[]>();
-  const openclawDir = process.env.OPENCLAW_DIR || '/root/.openclaw';
+  const vertexosDir = process.env.VERTEXOS_DIR || '/root/.vertexos';
 
   // Agent workspaces: workspace, workspace-infra, workspace-social, etc.
-  // Read from openclaw.json if possible
+  // Read from config.json if possible
   let agentList: Array<{ id: string; workspace: string }> = [];
   try {
-    const openclawConfig = JSON.parse(fs.readFileSync(path.join(openclawDir, 'openclaw.json'), 'utf-8'));
-    agentList = (openclawConfig?.agents?.list || []).map((a: any) => ({
+    const vertexosConfig = JSON.parse(fs.readFileSync(path.join(vertexosDir, 'config.json'), 'utf-8'));
+    agentList = (vertexosConfig?.agents?.list || []).map((a: any) => ({
       id: a.id,
-      workspace: a.workspace || path.join(openclawDir, 'workspace'),
+      workspace: a.workspace || path.join(vertexosDir, 'workspace'),
     }));
   } catch {
     // Fallback: scan directories
     try {
-      const dirs = fs.readdirSync(openclawDir, { withFileTypes: true });
+      const dirs = fs.readdirSync(vertexosDir, { withFileTypes: true });
       for (const d of dirs) {
         if (d.isDirectory() && d.name.startsWith('workspace')) {
           const agentId = d.name === 'workspace' ? 'main' : d.name.replace('workspace-', '');
-          agentList.push({ id: agentId, workspace: path.join(openclawDir, d.name) });
+          agentList.push({ id: agentId, workspace: path.join(vertexosDir, d.name) });
         }
       }
     } catch {}

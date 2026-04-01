@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-const OPENCLAW_DIR = process.env.OPENCLAW_DIR || '/root/.openclaw';
+const OPENCLAW_DIR = process.env.VERTEXOS_DIR || '/root/.vertexos';
 
 interface Workspace {
   id: string;
@@ -52,7 +52,7 @@ export async function GET() {
       workspaces.push({
         id: 'workspace',
         name: 'Workspace Principal',
-        emoji: mainInfo?.emoji || '🦞',
+        emoji: mainInfo?.emoji || '🏢',
         path: mainWorkspace,
         agentName: mainInfo?.name || 'Tenacitas',
       });

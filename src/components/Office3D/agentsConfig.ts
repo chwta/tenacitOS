@@ -2,8 +2,8 @@
  * Office 3D — Agent Configuration
  *
  * This file defines the visual layout of agents in the 3D office.
- * Names, emojis and roles are loaded at runtime from the OpenClaw API
- * (/api/agents → openclaw.json), so you only need to set positions and colors here.
+ * Names, emojis and roles are loaded at runtime from the VertexOS API
+ * (/api/agents → config.json), so you only need to set positions and colors here.
  *
  * Agent IDs correspond to workspace directory suffixes:
  *   id: "main"     → workspace/          (main agent)
@@ -11,7 +11,7 @@
  *   id: "infra"    → workspace-infra/
  *   etc.
  *
- * Add, remove or reposition agents to match your own OpenClaw setup.
+ * Add, remove or reposition agents to match your own VertexOS setup.
  */
 
 export interface AgentConfig {
@@ -26,8 +26,8 @@ export interface AgentConfig {
 export const AGENTS: AgentConfig[] = [
   {
     id: "main",
-    name: process.env.NEXT_PUBLIC_AGENT_NAME || "Mission Control",
-    emoji: process.env.NEXT_PUBLIC_AGENT_EMOJI || "🦞",
+    name: process.env.NEXT_PUBLIC_AGENT_NAME || "VertexOS",
+    emoji: process.env.NEXT_PUBLIC_AGENT_EMOJI || "🏢",
     position: [0, 0, 0], // Center — main desk
     color: "#FFCC00",
     role: "Main Agent",

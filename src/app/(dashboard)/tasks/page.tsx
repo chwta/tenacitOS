@@ -1,516 +1,199 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import React from "react";
-import {
-  LayoutList,
-  Plus,
-  Trash2,
-  X,
-  AlertCircle,
-  RefreshCw,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
-  Ban,
-  Loader2,
-} from "lucide-react";
-
-type TaskStatus = "pending" | "in_progress" | "done" | "failed" | "cancelled";
-
-interface Task {
-  id: number;
-  collaborator_id: string;
-  agent_id: string;
-  description: string;
-  source: string;
-  status: TaskStatus;
-  result: string;
-  error_message: string;
-  attempt_count: number;
-  created_at: string;
-  updated_at: string;
-  completed_at: string | null;
-}
+import { useState, useEffect, useCallback } from "react";
+import { LayoutList, RefreshCw, Plus, Trash2, ArrowRight, X, Check } from "lucide-react";
+import { getTasks, createTask, updateTask, deleteTask, Task } from "@/lib/vertexos-client";
 
 type LucideIcon = React.ComponentType<{ style?: React.CSSProperties; className?: string }>;
 
-const COLUMNS: { status: TaskStatus; label: string; color: string; bg: string; icon: LucideIcon }[] = [
-  { status: "pending",     label: "Pendente",     color: "#94a3b8", bg: "#94a3b810", icon: Clock },
-  { status: "in_progress", label: "Em Andamento", color: "#60a5fa", bg: "#60a5fa10", icon: Loader2 },
-  { status: "done",        label: "Concluído",    color: "#4ade80", bg: "#4ade8010", icon: CheckCircle2 },
-  { status: "failed",      label: "Falhou",       color: "#f87171", bg: "#f8717110", icon: AlertTriangle },
-  { status: "cancelled",   label: "Cancelado",    color: "#a78bfa", bg: "#a78bfa10", icon: Ban },
+const STATUS_COLS: { key: Task["status"]; label: string; color: string }[] = [
+  { key: "pending", label: "Pendente", color: "var(--text-muted)" },
+  { key: "in_progress", label: "Em Andamento", color: "#f59e0b" },
+  { key: "done", label: "Concluido", color: "#10b981" },
+  { key: "failed", label: "Falhou", color: "var(--error)" },
+  { key: "cancelled", label: "Cancelado", color: "#6b7280" },
 ];
 
-const emptyForm = { agent_id: "", description: "", collaborator_id: "", source: "admin" };
+const NEXT_STATUS: Partial<Record<Task["status"], Task["status"]>> = {
+  pending: "in_progress",
+  in_progress: "done",
+};
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
-
+  const [error, setError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ ...emptyForm });
+  const [form, setForm] = useState({ description: "", collaborator_id: "", agent_id: "", source: "" });
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState("");
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [movingId, setMovingId] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
-  const load = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    else setRefreshing(true);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch("/api/tasks");
-      const data = await res.json();
-      setTasks(data.tasks ?? []);
-      setError("");
+      const list = await getTasks();
+      setTasks(list);
     } catch {
-      setError("Erro ao carregar tarefas do VertexOS.");
+      setError("Erro ao carregar tarefas");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     load();
-    const interval = setInterval(() => load(true), 15_000);
+    const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, [load]);
 
-  async function handleCreate() {
+  const handleCreate = async () => {
+    if (!form.description.trim()) return;
     setSaving(true);
-    setSaveError("");
     try {
-      const res = await fetch("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        throw new Error(d.error ?? "Erro ao criar tarefa");
-      }
+      await createTask({ description: form.description, collaborator_id: form.collaborator_id || undefined, agent_id: form.agent_id || "dashboard", source: form.source || undefined });
       setShowCreate(false);
-      setForm({ ...emptyForm });
-      await load(true);
-    } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Erro desconhecido");
+      setForm({ description: "", collaborator_id: "", agent_id: "", source: "" });
+      await load();
+    } catch {
+      setError("Erro ao criar tarefa");
     } finally {
       setSaving(false);
     }
-  }
-
-  async function handleMove(task: Task, newStatus: TaskStatus) {
-    setMovingId(task.id);
-    try {
-      await fetch(`/api/tasks?id=${task.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      await load(true);
-    } finally {
-      setMovingId(null);
-    }
-  }
-
-  async function handleDelete(id: number) {
-    try {
-      await fetch(`/api/tasks?id=${id}`, { method: "DELETE" });
-      setDeletingId(null);
-      await load(true);
-    } catch {
-      // ignore
-    }
-  }
-
-  const tasksByStatus = (status: TaskStatus) => tasks.filter((t) => t.status === status);
-
-  function formatDate(iso: string) {
-    return new Date(iso).toLocaleString("pt-BR", {
-      day: "2-digit", month: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-    });
-  }
-
-  const nextStatuses: Record<TaskStatus, TaskStatus[]> = {
-    pending:     ["in_progress", "cancelled"],
-    in_progress: ["done", "failed", "cancelled"],
-    done:        [],
-    failed:      ["pending"],
-    cancelled:   ["pending"],
   };
 
+  const handleTransition = async (task: Task) => {
+    const next = NEXT_STATUS[task.status];
+    if (!next) return;
+    try {
+      await updateTask(task.id, { status: next });
+      await load();
+    } catch {
+      setError("Erro ao atualizar tarefa");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteTask(id);
+      setDeleteId(null);
+      await load();
+    } catch {
+      setError("Erro ao deletar tarefa");
+    }
+  };
+
+  const byStatus = (status: Task["status"]) => tasks.filter(t => t.status === status);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      {/* Header */}
-      <div style={{ padding: "24px 24px 16px", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px", marginBottom: "4px" }}>
-          <h1 style={{ fontFamily: "var(--font-heading)", fontSize: "24px", fontWeight: 700, letterSpacing: "-1px", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: "10px" }}>
-            <LayoutList style={{ width: "28px", height: "28px" }} />
+    <div style={{ padding: "2rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <LayoutList style={{ width: "1.5rem", height: "1.5rem", color: "var(--accent)" }} />
+          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-primary)", fontFamily: "var(--font-heading)" }}>
             Tarefas
           </h1>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              onClick={() => load(true)}
-              disabled={refreshing}
-              style={{
-                padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)",
-                backgroundColor: "var(--card)", color: "var(--text-muted)", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: "6px", fontSize: "13px",
-              }}
-            >
-              <RefreshCw style={{ width: "14px", height: "14px", animation: refreshing ? "spin 1s linear infinite" : "none" }} />
-              Atualizar
-            </button>
-            <button
-              onClick={() => { setShowCreate(true); setSaveError(""); setForm({ ...emptyForm }); }}
-              style={{
-                padding: "8px 16px", borderRadius: "8px", backgroundColor: "var(--accent)",
-                color: "#fff", border: "none", cursor: "pointer", fontWeight: 600,
-                fontSize: "13px", display: "flex", alignItems: "center", gap: "6px",
-              }}
-            >
-              <Plus style={{ width: "14px", height: "14px" }} />
-              Nova Tarefa
-            </button>
-          </div>
+          <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", background: "var(--card-elevated)", padding: "0.2rem 0.6rem", borderRadius: "9999px" }}>
+            auto-refresh 15s
+          </span>
         </div>
-        <p style={{ color: "var(--text-secondary)", fontSize: "13px" }}>
-          {tasks.length} tarefa{tasks.length !== 1 ? "s" : ""} · {tasksByStatus("in_progress").length} em andamento
-        </p>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <button onClick={load} className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <RefreshCw style={{ width: "1rem", height: "1rem" }} />
+          </button>
+          <button onClick={() => setShowCreate(true)} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Plus style={{ width: "1rem", height: "1rem" }} /> Nova Tarefa
+          </button>
+        </div>
       </div>
 
-      {/* Error */}
       {error && (
-        <div style={{ margin: "0 24px 12px", padding: "10px 14px", borderRadius: "8px", display: "flex", alignItems: "center", gap: "8px", backgroundColor: "var(--error)20", border: "1px solid var(--error)40", color: "var(--error)", fontSize: "13px" }}>
-          <AlertCircle style={{ width: "16px", height: "16px", flexShrink: 0 }} />
+        <div style={{ padding: "0.75rem 1rem", background: "rgba(239,68,68,0.1)", border: "1px solid var(--error)", borderRadius: "0.5rem", color: "var(--error)", marginBottom: "1rem", fontSize: "0.875rem" }}>
           {error}
         </div>
       )}
 
-      {/* Kanban board */}
-      {loading ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-          Carregando tarefas...
-        </div>
+      {loading && tasks.length === 0 ? (
+        <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "3rem" }}>Carregando...</div>
       ) : (
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            gap: "16px",
-            padding: "0 24px 24px",
-            overflowX: "auto",
-            overflowY: "hidden",
-            alignItems: "flex-start",
-          }}
-        >
-          {COLUMNS.map((col) => {
-            const colTasks = tasksByStatus(col.status);
-            const Icon = col.icon;
-            return (
-              <div
-                key={col.status}
-                style={{
-                  minWidth: "260px",
-                  maxWidth: "300px",
-                  flex: "1",
-                  display: "flex",
-                  flexDirection: "column",
-                  backgroundColor: col.bg,
-                  borderRadius: "12px",
-                  border: `1px solid ${col.color}30`,
-                  overflow: "hidden",
-                  maxHeight: "calc(100vh - 220px)",
-                }}
-              >
-                {/* Column header */}
-                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${col.color}30`, display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                  <Icon style={{ width: "16px", height: "16px", color: col.color }} />
-                  <span style={{ fontFamily: "var(--font-heading)", fontSize: "13px", fontWeight: 700, color: col.color }}>
-                    {col.label}
-                  </span>
-                  <span style={{
-                    marginLeft: "auto",
-                    backgroundColor: `${col.color}25`,
-                    color: col.color,
-                    borderRadius: "20px",
-                    padding: "2px 8px",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                  }}>
-                    {colTasks.length}
-                  </span>
-                </div>
-
-                {/* Cards */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "8px", display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {colTasks.length === 0 ? (
-                    <div style={{ padding: "24px 0", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
-                      Nenhuma tarefa
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem", alignItems: "start" }}>
+          {STATUS_COLS.map(col => (
+            <div key={col.key} style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "0.75rem", overflow: "hidden" }}>
+              <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: 700, color: col.color, textTransform: "uppercase", letterSpacing: "0.05em" }}>{col.label}</span>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", background: "var(--card-elevated)", padding: "0.1rem 0.4rem", borderRadius: "9999px" }}>
+                  {byStatus(col.key).length}
+                </span>
+              </div>
+              <div style={{ padding: "0.5rem", display: "flex", flexDirection: "column", gap: "0.5rem", minHeight: "4rem" }}>
+                {byStatus(col.key).map(task => (
+                  <div key={task.id} style={{ background: "var(--card-elevated)", border: "1px solid var(--border)", borderRadius: "0.5rem", padding: "0.75rem" }}>
+                    <p style={{ fontSize: "0.8rem", color: "var(--text-primary)", marginBottom: "0.5rem", lineHeight: 1.4 }}>{task.description}</p>
+                    {task.agent_id && (
+                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontFamily: "monospace", marginBottom: "0.5rem" }}>
+                        {task.agent_id}
+                      </p>
+                    )}
+                    <div style={{ display: "flex", gap: "0.25rem", justifyContent: "flex-end" }}>
+                      {NEXT_STATUS[task.status] && (
+                        <button onClick={() => handleTransition(task)} title="Avancar status" style={{ padding: "0.2rem 0.4rem", background: "transparent", border: "1px solid var(--border)", borderRadius: "0.25rem", color: "var(--accent)", cursor: "pointer" }}>
+                          <ArrowRight style={{ width: "0.75rem", height: "0.75rem" }} />
+                        </button>
+                      )}
+                      {deleteId === task.id ? (
+                        <>
+                          <button onClick={() => handleDelete(task.id)} style={{ padding: "0.2rem 0.4rem", background: "var(--error)", border: "none", borderRadius: "0.25rem", color: "white", cursor: "pointer" }}>
+                            <Check style={{ width: "0.75rem", height: "0.75rem" }} />
+                          </button>
+                          <button onClick={() => setDeleteId(null)} style={{ padding: "0.2rem 0.4rem", background: "transparent", border: "1px solid var(--border)", borderRadius: "0.25rem", color: "var(--text-muted)", cursor: "pointer" }}>
+                            <X style={{ width: "0.75rem", height: "0.75rem" }} />
+                          </button>
+                        </>
+                      ) : (
+                        <button onClick={() => setDeleteId(task.id)} style={{ padding: "0.2rem 0.4rem", background: "transparent", border: "1px solid var(--border)", borderRadius: "0.25rem", color: "var(--error)", cursor: "pointer" }}>
+                          <Trash2 style={{ width: "0.75rem", height: "0.75rem" }} />
+                        </button>
+                      )}
                     </div>
-                  ) : (
-                    colTasks.map((task) => (
-                      <TaskCard
-                        key={task.id}
-                        task={task}
-                        colColor={col.color}
-                        nextStatuses={nextStatuses[task.status]}
-                        columns={COLUMNS}
-                        onMove={handleMove}
-                        onDelete={() => setDeletingId(task.id)}
-                        moving={movingId === task.id}
-                        formatDate={formatDate}
-                      />
-                    ))
-                  )}
-                </div>
+                  </div>
+                ))}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Create Modal */}
       {showCreate && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl p-6"
-            style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-          >
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold" style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)" }}>
-                Nova Tarefa
-              </h2>
-              <button onClick={() => setShowCreate(false)} style={{ color: "var(--text-muted)" }}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <Field label="Agente responsável (ID)" required>
-                <input
-                  value={form.agent_id}
-                  onChange={(e) => setForm((f) => ({ ...f, agent_id: e.target.value }))}
-                  placeholder="assistente_financeiro"
-                  style={inputStyle}
-                />
-              </Field>
-              <Field label="Descrição da tarefa" required>
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={4}
-                  placeholder="Descreva o que o agente deve fazer..."
-                  style={{ ...inputStyle, resize: "vertical" }}
-                />
-              </Field>
-              <Field label="Colaborador (ID, opcional)">
-                <input
-                  value={form.collaborator_id}
-                  onChange={(e) => setForm((f) => ({ ...f, collaborator_id: e.target.value }))}
-                  placeholder="joao.silva"
-                  style={inputStyle}
-                />
-              </Field>
-            </div>
-
-            {saveError && (
-              <div className="mt-3 p-2 rounded text-xs" style={{ backgroundColor: "var(--error)20", color: "var(--error)" }}>
-                {saveError}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "1rem", padding: "2rem", width: "100%", maxWidth: "480px" }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1.5rem" }}>Nova Tarefa</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Descricao *</label>
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="input" style={{ width: "100%", height: "80px", resize: "vertical" }} placeholder="Descreva a tarefa..." />
               </div>
-            )}
-
-            <div className="flex gap-3 mt-6 justify-end">
-              <button
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: "var(--card-elevated)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={saving}
-                className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity"
-                style={{ backgroundColor: "var(--accent)", color: "#fff", opacity: saving ? 0.7 : 1 }}
-              >
-                {saving ? "Criando..." : "Criar Tarefa"}
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Colaborador ID</label>
+                <input value={form.collaborator_id} onChange={e => setForm(f => ({ ...f, collaborator_id: e.target.value }))} className="input" style={{ width: "100%" }} placeholder="Opcional" />
+              </div>
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Agent ID</label>
+                <input value={form.agent_id} onChange={e => setForm(f => ({ ...f, agent_id: e.target.value }))} className="input" style={{ width: "100%" }} placeholder="Opcional" />
+              </div>
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Fonte</label>
+                <input value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} className="input" style={{ width: "100%" }} placeholder="Ex: dashboard" />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", justifyContent: "flex-end" }}>
+              <button onClick={() => setShowCreate(false)} className="btn-secondary">Cancelar</button>
+              <button onClick={handleCreate} disabled={saving || !form.description.trim()} className="btn-primary">
+                {saving ? "Criando..." : "Criar"}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Delete Confirmation */}
-      {deletingId !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl p-6 text-center"
-            style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-          >
-            <Trash2 className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--error)" }} />
-            <h3 className="text-lg font-bold mb-2" style={{ color: "var(--text-primary)" }}>
-              Excluir tarefa #{deletingId}?
-            </h3>
-            <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
-              Esta ação é permanente.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <button
-                onClick={() => setDeletingId(null)}
-                className="px-4 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: "var(--card-elevated)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => handleDelete(deletingId)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold"
-                style={{ backgroundColor: "var(--error)", color: "#fff" }}
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TaskCard({
-  task, colColor, nextStatuses, columns, onMove, onDelete, moving, formatDate,
-}: {
-  task: Task;
-  colColor: string;
-  nextStatuses: TaskStatus[];
-  columns: { status: TaskStatus; label: string; color: string; bg: string; icon: LucideIcon }[];
-  onMove: (task: Task, s: TaskStatus) => void;
-  onDelete: () => void;
-  moving: boolean;
-  formatDate: (s: string) => string;
-}) {
-  return (
-    <div
-      style={{
-        backgroundColor: "var(--card)",
-        borderRadius: "8px",
-        padding: "12px",
-        border: "1px solid var(--border)",
-        opacity: moving ? 0.6 : 1,
-        transition: "opacity 150ms",
-      }}
-    >
-      {/* Task ID + agent */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--text-muted)" }}>
-          #{task.id}
-        </span>
-        <span style={{
-          fontSize: "10px", fontWeight: 600, color: colColor,
-          backgroundColor: `${colColor}20`, borderRadius: "4px", padding: "1px 6px",
-        }}>
-          {task.agent_id}
-        </span>
-      </div>
-
-      {/* Description */}
-      <p style={{
-        fontSize: "12px", color: "var(--text-primary)", lineHeight: "1.5",
-        marginBottom: "8px",
-        display: "-webkit-box",
-        WebkitLineClamp: 3,
-        WebkitBoxOrient: "vertical",
-        overflow: "hidden",
-      }}>
-        {task.description}
-      </p>
-
-      {/* Error message */}
-      {task.error_message && (
-        <p style={{ fontSize: "11px", color: "#f87171", marginBottom: "8px", fontStyle: "italic" }}>
-          {task.error_message}
-        </p>
-      )}
-
-      {/* Date */}
-      <div style={{ fontSize: "10px", color: "var(--text-muted)", marginBottom: "8px" }}>
-        {formatDate(task.created_at)}
-        {task.attempt_count > 1 && (
-          <span style={{ marginLeft: "6px", color: "#fb923c" }}>
-            · {task.attempt_count} tentativas
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", alignItems: "center" }}>
-        {nextStatuses.map((ns) => {
-          const col = columns.find((c) => c.status === ns)!;
-          return (
-            <button
-              key={ns}
-              onClick={() => onMove(task, ns)}
-              disabled={moving}
-              style={{
-                fontSize: "10px", fontWeight: 600, padding: "3px 8px",
-                borderRadius: "4px", border: `1px solid ${col.color}50`,
-                backgroundColor: `${col.color}15`, color: col.color,
-                cursor: "pointer", transition: "all 100ms",
-              }}
-            >
-              → {col.label}
-            </button>
-          );
-        })}
-        <button
-          onClick={onDelete}
-          style={{
-            marginLeft: "auto", padding: "3px 6px", borderRadius: "4px",
-            border: "none", backgroundColor: "transparent", cursor: "pointer",
-            color: "var(--text-muted)",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--error)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
-        >
-          <Trash2 style={{ width: "12px", height: "12px" }} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  fontSize: "14px",
-  backgroundColor: "var(--card-elevated)",
-  border: "1px solid var(--border)",
-  color: "var(--text-primary)",
-  outline: "none",
-};
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-xs font-medium mb-1" style={{ color: "var(--text-muted)" }}>
-        {label}
-        {required && <span style={{ color: "var(--error)" }}> *</span>}
-      </label>
-      {children}
     </div>
   );
 }

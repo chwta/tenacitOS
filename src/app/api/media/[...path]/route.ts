@@ -3,8 +3,8 @@ import { readFile, stat } from "fs/promises";
 import path from "path";
 
 const ALLOWED_PREFIXES = [
-  (process.env.OPENCLAW_WORKSPACE || "/root/.openclaw/workspace") + "/",
-  (process.env.OPENCLAW_DIR || "/root/.openclaw") + "/media/",
+  (process.env.VERTEXOS_WORKSPACE || "/root/.vertexos/workspace") + "/",
+  (process.env.VERTEXOS_DIR || "/root/.vertexos") + "/media/",
 ];
 
 const ALLOWED_EXTENSIONS: Record<string, string> = {

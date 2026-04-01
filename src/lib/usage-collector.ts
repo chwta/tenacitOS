@@ -1,5 +1,5 @@
 /**
- * Usage Collector - Reads OpenClaw session data and calculates costs
+ * Usage Collector - Reads VertexOS session data and calculates costs
  */
 
 import { exec } from "child_process";
@@ -36,14 +36,14 @@ export interface UsageSnapshot {
 }
 
 /**
- * Get current OpenClaw status with session data
+ * Get current VertexOS status with session data
  */
-export async function getOpenClawStatus(): Promise<any> {
+export async function getVertexOSStatus(): Promise<any> {
   try {
-    const { stdout } = await execAsync("openclaw status --json");
+    const { stdout } = await execAsync("vertexos status --json");
     return JSON.parse(stdout);
   } catch (error) {
-    console.error("Error getting OpenClaw status:", error);
+    console.error("Error getting VertexOS status:", error);
     throw error;
   }
 }
@@ -199,7 +199,7 @@ export async function collectUsage(dbPath: string): Promise<void> {
 
   try {
     // Get current status
-    const status = await getOpenClawStatus();
+    const status = await getVertexOSStatus();
     const sessions = extractSessionData(status);
     const timestamp = Date.now();
     const snapshots = calculateSnapshot(sessions, timestamp);

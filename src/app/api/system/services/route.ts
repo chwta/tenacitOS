@@ -10,7 +10,7 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 const ALLOWED_SERVICES_PM2 = ['classvault', 'content-vault', 'postiz-simple', 'brain'];
-const ALLOWED_SERVICES_SYSTEMD = ['mission-control', 'openclaw-gateway', 'nginx'];
+const ALLOWED_SERVICES_SYSTEMD = ['mission-control', 'vertexos-gateway', 'nginx'];
 const ALLOWED_DOCKER_IDS_PATTERN = /^[a-f0-9]{6,64}$|^[a-zA-Z0-9_-]+$/;
 
 async function pm2Action(name: string, action: string): Promise<string> {

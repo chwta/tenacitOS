@@ -3,7 +3,7 @@
  * GET /api/sessions?id=xxx   → get messages for a specific session
  *
  * VertexOS stores sessions as JSONL files managed by web/backend/api/session.go.
- * We proxy those endpoints instead of calling `openclaw sessions list --json`.
+ * We proxy those endpoints instead of calling `vertexos sessions list --json`.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getSessions, getSessionMessages } from "@/lib/vertexos-client";

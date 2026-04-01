@@ -39,7 +39,7 @@ export function QuickActions({ onActionComplete }: QuickActionsProps) {
   };
 
   const handleRestartGateway = async () => {
-    // Placeholder - would call openclaw gateway restart
+    // Placeholder - would call vertexos gateway restart
     showNotification("success", "Gateway restart command sent (placeholder)");
   };
 

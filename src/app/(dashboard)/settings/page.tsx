@@ -131,8 +131,8 @@ export default function SettingsPage() {
         }}
       >
         <div className="flex items-center justify-between text-sm" style={{ color: "var(--text-muted)" }}>
-          <span>Mission Control v1.0.0</span>
-          <span>OpenClaw Agent Dashboard</span>
+          <span>VertexOS v2.1.0</span>
+          <span>VertexOS Control Panel</span>
         </div>
       </div>
     </div>

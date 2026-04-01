@@ -94,7 +94,7 @@ export default function AboutPage() {
   const ownerUsername = BRANDING.ownerUsername;
   const description =
     BRANDING.agentDescription ||
-    `AI assistant for ${ownerUsername}. Powered by OpenClaw.`;
+    `Agente VertexOS para ${ownerUsername}.`;
 
   return (
     <div className="p-4 md:p-8 max-w-5xl">
@@ -183,7 +183,7 @@ export default function AboutPage() {
                   className="w-4 h-4"
                   style={{ color: "var(--accent)" }}
                 />
-                OpenClaw + Claude
+                VertexOS + Claude
               </span>
             </div>
           </div>
@@ -326,7 +326,7 @@ export default function AboutPage() {
                 {agentName} {agentEmoji}
               </strong>
               , an AI agent running on{" "}
-              <span style={{ color: "var(--accent)" }}>OpenClaw</span> with
+              <span style={{ color: "var(--accent)" }}>VertexOS</span> with
               Claude as my brain.
             </p>
             <p>
@@ -494,12 +494,12 @@ export default function AboutPage() {
           >
             Built with <span style={{ color: "var(--accent)" }}>♥</span> on{" "}
             <a
-              href="https://github.com/openclaw/openclaw"
+              href="https://github.com/vertexos/vertexos"
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "var(--accent)", textDecoration: "underline" }}
             >
-              OpenClaw
+              VertexOS
             </a>
           </span>
         </div>

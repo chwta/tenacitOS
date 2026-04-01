@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
-import { OPENCLAW_WORKSPACE } from "@/lib/paths";
+import { VERTEXOS_WORKSPACE } from "@/lib/paths";
 
-const WORKSPACE = OPENCLAW_WORKSPACE;
+const WORKSPACE = VERTEXOS_WORKSPACE;
 const MEMORY_DIR = "memory";
 
 const REPORT_PATTERNS = [

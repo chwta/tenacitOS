@@ -1,19 +1,11 @@
-/**
- * Tasks API proxy → VertexOS enterprise endpoints.
- *
- * GET    /api/tasks                 → list tasks (supports ?collaborator_id, ?agent_id, ?status)
- * POST   /api/tasks                 → create task
- * PUT    /api/tasks?id=xxx          → update task status/description
- * DELETE /api/tasks?id=xxx          → delete task
- */
 import { NextRequest, NextResponse } from "next/server";
 import { getTasks, createTask, updateTask, deleteTask } from "@/lib/vertexos-client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
   try {
-    const { searchParams } = new URL(request.url);
     const tasks = await getTasks({
       collaborator_id: searchParams.get("collaborator_id") ?? undefined,
       agent_id: searchParams.get("agent_id") ?? undefined,
@@ -41,8 +33,8 @@ export async function PUT(request: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
   try {
     const body = await request.json();
-    await updateTask(Number(id), body);
-    return NextResponse.json({ id: Number(id) });
+    const result = await updateTask(Number(id), body);
+    return NextResponse.json(result);
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 400 });
   }

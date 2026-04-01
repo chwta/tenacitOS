@@ -30,10 +30,10 @@ function LoginForm() {
         router.push(from);
         router.refresh();
       } else {
-        setError("Contraseña incorrecta");
+        setError("Senha incorreta");
       }
     } catch {
-      setError("Error de conexión");
+      setError("Erro de conexão");
     }
 
     setLoading(false);
@@ -54,23 +54,22 @@ function LoginForm() {
             className="w-7 h-7" 
             style={{ color: 'var(--accent)' }} 
           />
-          <span className="text-2xl">🦞</span>
-          <h1 
+          <h1
             className="text-xl font-bold"
-            style={{ 
+            style={{
               fontFamily: 'var(--font-heading)',
               color: 'var(--text-primary)',
               letterSpacing: '-0.5px'
             }}
           >
-            Mission Control
+            VertexOS
           </h1>
         </div>
         <p 
           className="text-sm"
           style={{ color: 'var(--text-secondary)' }}
         >
-          Introduce la contraseña para acceder
+          Digite a senha para acessar
         </p>
       </div>
 
@@ -91,7 +90,7 @@ function LoginForm() {
               border: '1px solid var(--border)',
               color: 'var(--text-primary)',
             }}
-            placeholder="Contraseña"
+            placeholder="Senha"
             required
           />
         </div>

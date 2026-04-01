@@ -597,7 +597,7 @@ type FilterType = "all" | "main" | "cron" | "subagent" | "direct";
 
 const FILTER_TABS: Array<{ id: FilterType; label: string; emoji: string }> = [
   { id: "all", label: "All", emoji: "📋" },
-  { id: "main", label: "Main", emoji: "🦞" },
+  { id: "main", label: "Main", emoji: "🏢" },
   { id: "cron", label: "Cron", emoji: "🕐" },
   { id: "subagent", label: "Sub-agents", emoji: "🤖" },
   { id: "direct", label: "Chats", emoji: "💬" },
@@ -666,7 +666,7 @@ export default function SessionsPage() {
             💬 Session History
           </h1>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-            All OpenClaw agent sessions — main, cron, sub-agents, and chats
+            Sessões dos agentes VertexOS — principal, cron, sub-agentes e chats
           </p>
         </div>
 

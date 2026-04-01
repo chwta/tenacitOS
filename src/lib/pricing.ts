@@ -1,5 +1,5 @@
 /**
- * OpenClaw Model Pricing
+ * VertexOS Model Pricing
  * Based on OpenRouter and Anthropic pricing as of Feb 2026
  * All prices in USD per million tokens
  */
@@ -115,7 +115,7 @@ export function getModelName(modelId: string): string {
  * Normalize model ID (handle aliases and different formats)
  */
 export function normalizeModelId(modelId: string): string {
-  // Handle short aliases and OpenClaw format (without provider prefix)
+  // Handle short aliases and VertexOS format (without provider prefix)
   const aliasMap: Record<string, string> = {
     // Short aliases
     opus: "anthropic/claude-opus-4-6",
@@ -123,7 +123,7 @@ export function normalizeModelId(modelId: string): string {
     haiku: "anthropic/claude-haiku-3-5",
     "gemini-flash": "google/gemini-2.5-flash",
     "gemini-pro": "google/gemini-2.5-pro",
-    // OpenClaw format (without provider/)
+    // VertexOS format (without provider/)
     "claude-opus-4-6": "anthropic/claude-opus-4-6",
     "claude-sonnet-4-5": "anthropic/claude-sonnet-4-5",
     "claude-haiku-3-5": "anthropic/claude-haiku-3-5",

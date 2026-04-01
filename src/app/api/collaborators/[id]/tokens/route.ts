@@ -1,16 +1,5 @@
-/**
- * Bridge token sub-resource proxy.
- *
- * GET    /api/collaborators/[id]/tokens            → list active tokens
- * POST   /api/collaborators/[id]/tokens            → issue new JWT token
- * DELETE /api/collaborators/[id]/tokens?tokenId=xx → revoke token
- */
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getCollaboratorTokens,
-  issueCollaboratorToken,
-  revokeCollaboratorToken,
-} from "@/lib/vertexos-client";
+import { getCollaboratorTokens, issueCollaboratorToken, revokeCollaboratorToken } from "@/lib/vertexos-client";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +29,8 @@ export async function POST(request: NextRequest, { params }: Params) {
 
 export async function DELETE(request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const tokenId = new URL(request.url).searchParams.get("tokenId");
-  if (!tokenId) return NextResponse.json({ error: "tokenId required" }, { status: 400 });
+  const tokenId = new URL(request.url).searchParams.get("token_id");
+  if (!tokenId) return NextResponse.json({ error: "token_id required" }, { status: 400 });
   try {
     await revokeCollaboratorToken(id, tokenId);
     return new NextResponse(null, { status: 204 });

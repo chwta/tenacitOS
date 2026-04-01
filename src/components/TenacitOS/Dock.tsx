@@ -18,6 +18,7 @@ import {
   UserCheck,
   LayoutList,
   Landmark,
+  BookOpen,
 } from "lucide-react";
 
 const dockItems = [
@@ -29,6 +30,7 @@ const dockItems = [
   { href: "/departments", label: "Departamentos", icon: Landmark },
   { href: "/collaborators", label: "Colaboradores", icon: UserCheck },
   { href: "/tasks", label: "Tarefas", icon: LayoutList },
+  { href: "/knowledge", label: "Knowledge Base", icon: BookOpen },
   { href: "/office", label: "Office", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/cron", label: "Cron Jobs", icon: Clock },

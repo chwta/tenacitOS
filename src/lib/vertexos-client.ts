@@ -2,7 +2,7 @@
  * VertexOS API client.
  *
  * All server-side Next.js API routes should import from here instead of
- * reading OpenClaw filesystem paths directly.  The base URL is configured
+ * reading VertexOS filesystem paths directly.  The base URL is configured
  * via VERTEXOS_API_URL (defaults to http://localhost:18800).
  */
 
@@ -343,4 +343,77 @@ export interface AgentStatus {
 export async function getAgentsStatus(): Promise<AgentStatus[]> {
   const data = await vxFetch<{ agents: AgentStatus[] }>("/api/v1/agents/status");
   return data.agents;
+}
+// ─────────────────────────────────────────────────────────────
+// Enterprise — Agent Detail
+// ─────────────────────────────────────────────────────────────
+
+export interface MemoryFact {
+  key: string;
+  value: string;
+  updated_at: string;
+}
+
+export interface AgentDetail {
+  agent_id: string;
+  last_seen: string | null;
+  status: "online" | "idle" | "offline";
+  today_tokens: number;
+  today_calls: number;
+  month_tokens: number;
+  active_tasks: number;
+  total_tasks: number;
+  memory: MemoryFact[];
+  recent_tasks: Task[];
+}
+
+export async function getAgentDetail(agentId: string): Promise<AgentDetail> {
+  return vxFetch<AgentDetail>(`/api/v1/agents/${encodeURIComponent(agentId)}`);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enterprise — Knowledge Base
+// ─────────────────────────────────────────────────────────────
+
+export interface KnowledgeChunk {
+  id: number;
+  doc_id: string;
+  chunk_index: number;
+  content: string;
+  scope: string[];
+  source_type: string;
+  source_filename: string;
+  created_at: string;
+}
+
+export async function getKnowledge(params?: {
+  q?: string;
+  scope?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ chunks: KnowledgeChunk[]; total: number }> {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set("q", params.q);
+  if (params?.scope) sp.set("scope", params.scope);
+  if (params?.limit) sp.set("limit", String(params.limit));
+  if (params?.offset) sp.set("offset", String(params.offset));
+  const qs = sp.toString();
+  return vxFetch(`/api/v1/knowledge${qs ? `?${qs}` : ""}`);
+}
+
+export async function createKnowledgeChunk(body: {
+  doc_id?: string;
+  content: string;
+  scope?: string[];
+  source_type?: string;
+  source_filename?: string;
+}): Promise<{ id: number; doc_id: string }> {
+  return vxFetch("/api/v1/knowledge", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteKnowledgeChunk(id: number): Promise<void> {
+  await vxFetch(`/api/v1/knowledge/${id}`, { method: "DELETE" });
 }

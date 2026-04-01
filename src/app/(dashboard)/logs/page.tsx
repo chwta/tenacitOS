@@ -10,12 +10,12 @@ interface LogLine {
 }
 
 const SERVICES = [
-  { name: "mission-control", backend: "systemd", label: "Mission Control" },
+  { name: "mission-control", backend: "systemd", label: "VertexOS" },
   { name: "classvault", backend: "pm2", label: "ClassVault" },
   { name: "content-vault", backend: "pm2", label: "Content Vault" },
   { name: "brain", backend: "pm2", label: "Brain" },
   { name: "postiz-simple", backend: "pm2", label: "Postiz" },
-  { name: "openclaw-gateway", backend: "systemd", label: "Gateway" },
+  { name: "vertexos-gateway", backend: "systemd", label: "VertexOS Gateway" },
 ];
 
 function getLineColor(line: string): string {
