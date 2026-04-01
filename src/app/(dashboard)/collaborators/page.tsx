@@ -14,6 +14,10 @@ import {
   Building2,
   MessageSquare,
   Bot,
+  Key,
+  Copy,
+  CheckCheck,
+  ShieldOff,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────
@@ -41,6 +45,15 @@ interface Department {
   id: string;
   name: string;
   manager_agent_id: string;
+}
+
+interface BridgeToken {
+  token_id: string;
+  collaborator_id: string;
+  agent_ids: string[];
+  issued_at: string;
+  expires_at: string | null;
+  last_seen_at: string | null;
 }
 
 const emptyForm = {
@@ -73,6 +86,14 @@ export default function CollaboratorsPage() {
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Token panel
+  const [tokenPanelId, setTokenPanelId] = useState<string | null>(null);
+  const [tokens, setTokens] = useState<BridgeToken[]>([]);
+  const [tokensLoading, setTokensLoading] = useState(false);
+  const [newTokenResult, setNewTokenResult] = useState<string | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [issuingToken, setIssuingToken] = useState(false);
 
   // Filter
   const [filterDept, setFilterDept] = useState("");
@@ -198,6 +219,65 @@ export default function CollaboratorsPage() {
     } catch {
       // ignore — user can retry
     }
+  }
+
+  async function openTokenPanel(collaboratorId: string) {
+    setTokenPanelId(collaboratorId);
+    setNewTokenResult(null);
+    setTokenCopied(false);
+    setTokensLoading(true);
+    try {
+      const res = await fetch(`/api/collaborators/${encodeURIComponent(collaboratorId)}/tokens`);
+      const data = await res.json();
+      setTokens(data.tokens ?? []);
+    } finally {
+      setTokensLoading(false);
+    }
+  }
+
+  async function issueToken() {
+    if (!tokenPanelId) return;
+    setIssuingToken(true);
+    setNewTokenResult(null);
+    try {
+      const res = await fetch(`/api/collaborators/${encodeURIComponent(tokenPanelId)}/tokens`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ttl_days: 0 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setNewTokenResult(data.token);
+      // Reload token list
+      const listRes = await fetch(`/api/collaborators/${encodeURIComponent(tokenPanelId)}/tokens`);
+      const listData = await listRes.json();
+      setTokens(listData.tokens ?? []);
+      await load();
+    } finally {
+      setIssuingToken(false);
+    }
+  }
+
+  async function revokeToken(tokenId: string) {
+    if (!tokenPanelId) return;
+    try {
+      await fetch(`/api/collaborators/${encodeURIComponent(tokenPanelId)}/tokens?tokenId=${encodeURIComponent(tokenId)}`, {
+        method: "DELETE",
+      });
+      const res = await fetch(`/api/collaborators/${encodeURIComponent(tokenPanelId)}/tokens`);
+      const data = await res.json();
+      setTokens(data.tokens ?? []);
+      await load();
+    } catch {
+      // ignore
+    }
+  }
+
+  function copyToken(token: string) {
+    navigator.clipboard.writeText(token).then(() => {
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -387,6 +467,16 @@ export default function CollaboratorsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => openTokenPanel(c.id)}
+                        title="Gerenciar tokens"
+                        className="p-1.5 rounded-md transition-colors"
+                        style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = "#60a5fa"; e.currentTarget.style.backgroundColor = "#60a5fa15"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.backgroundColor = "transparent"; }}
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => openEdit(c)}
                         title="Editar"
                         className="p-1.5 rounded-md transition-colors"
@@ -537,6 +627,105 @@ export default function CollaboratorsPage() {
               >
                 {saving ? "Salvando..." : "Salvar"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Token Panel Modal ──────────────────────────────────── */}
+      {tokenPanelId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setTokenPanelId(null); setNewTokenResult(null); } }}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl p-6"
+            style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", maxHeight: "80vh", overflow: "auto" }}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-xl font-bold flex items-center gap-2"
+                style={{ fontFamily: "var(--font-heading)", color: "var(--text-primary)" }}>
+                <Key className="w-5 h-5" style={{ color: "#60a5fa" }} />
+                Tokens — {tokenPanelId}
+              </h2>
+              <button onClick={() => { setTokenPanelId(null); setNewTokenResult(null); }} style={{ color: "var(--text-muted)" }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* New token result */}
+            {newTokenResult && (
+              <div className="mb-4 p-3 rounded-lg" style={{ backgroundColor: "#60a5fa15", border: "1px solid #60a5fa40" }}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold" style={{ color: "#60a5fa" }}>Token gerado — copie agora, não será exibido novamente</span>
+                  <button
+                    onClick={() => copyToken(newTokenResult)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold transition-all"
+                    style={{ backgroundColor: tokenCopied ? "#4ade8020" : "#60a5fa20", color: tokenCopied ? "#4ade80" : "#60a5fa", border: `1px solid ${tokenCopied ? "#4ade8040" : "#60a5fa40"}` }}
+                  >
+                    {tokenCopied ? <CheckCheck className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                    {tokenCopied ? "Copiado!" : "Copiar"}
+                  </button>
+                </div>
+                <code className="block text-xs break-all" style={{ color: "var(--text-secondary)", fontFamily: "var(--font-mono)", wordBreak: "break-all" }}>
+                  {newTokenResult}
+                </code>
+              </div>
+            )}
+
+            {/* Issue button */}
+            <button
+              onClick={issueToken}
+              disabled={issuingToken}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg font-semibold text-sm mb-5 transition-opacity"
+              style={{ backgroundColor: "#60a5fa", color: "#fff", opacity: issuingToken ? 0.7 : 1 }}
+            >
+              <Key className="w-4 h-4" />
+              {issuingToken ? "Gerando..." : "Gerar Novo Token"}
+            </button>
+
+            {/* Token list */}
+            <div>
+              <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>
+                TOKENS ATIVOS ({tokens.length})
+              </p>
+              {tokensLoading ? (
+                <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>Carregando...</p>
+              ) : tokens.length === 0 ? (
+                <p className="text-sm text-center py-4" style={{ color: "var(--text-muted)" }}>Nenhum token ativo.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tokens.map((t) => (
+                    <div key={t.token_id} className="flex items-start justify-between gap-3 p-3 rounded-lg"
+                      style={{ backgroundColor: "var(--card-elevated)", border: "1px solid var(--border)" }}>
+                      <div className="min-w-0">
+                        <div className="font-mono text-xs mb-1" style={{ color: "var(--text-secondary)" }}>
+                          {t.token_id}
+                        </div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          Emitido: {new Date(t.issued_at).toLocaleString("pt-BR")}
+                          {t.last_seen_at && (
+                            <span className="ml-2" style={{ color: "#4ade80" }}>
+                              · Visto: {new Date(t.last_seen_at).toLocaleString("pt-BR")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => revokeToken(t.token_id)}
+                        title="Revogar token"
+                        className="flex-shrink-0 p-1.5 rounded transition-colors"
+                        style={{ color: "var(--text-muted)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = "var(--error)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
+                      >
+                        <ShieldOff className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

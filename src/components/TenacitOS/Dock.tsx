@@ -16,6 +16,8 @@ import {
   Settings,
   History,
   UserCheck,
+  LayoutList,
+  Landmark,
 } from "lucide-react";
 
 const dockItems = [
@@ -24,7 +26,9 @@ const dockItems = [
   { href: "/files", label: "Files", icon: FolderOpen },
   { href: "/memory", label: "Memory", icon: Brain },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/departments", label: "Departamentos", icon: Landmark },
   { href: "/collaborators", label: "Colaboradores", icon: UserCheck },
+  { href: "/tasks", label: "Tarefas", icon: LayoutList },
   { href: "/office", label: "Office", icon: Building2 },
   { href: "/activity", label: "Activity", icon: Activity },
   { href: "/cron", label: "Cron Jobs", icon: Clock },

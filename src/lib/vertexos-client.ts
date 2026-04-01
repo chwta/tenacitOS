@@ -231,6 +231,72 @@ export async function getTasks(filters?: {
   return data.tasks;
 }
 
+export async function createTask(body: {
+  agent_id: string;
+  description: string;
+  collaborator_id?: string;
+  source?: string;
+}): Promise<{ id: number }> {
+  return vxFetch<{ id: number }>("/api/v1/tasks", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateTask(
+  id: number,
+  body: { status?: Task["status"]; description?: string }
+): Promise<void> {
+  await vxFetch<void>(`/api/v1/tasks/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteTask(id: number): Promise<void> {
+  await vxFetch<void>(`/api/v1/tasks/${id}`, { method: "DELETE" });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enterprise — Bridge Tokens
+// ─────────────────────────────────────────────────────────────
+
+export interface BridgeToken {
+  token_id: string;
+  collaborator_id: string;
+  agent_ids: string[];
+  issued_at: string;
+  expires_at: string | null;
+  last_seen_at: string | null;
+}
+
+export async function getCollaboratorTokens(collaboratorId: string): Promise<BridgeToken[]> {
+  const data = await vxFetch<{ tokens: BridgeToken[] }>(
+    `/api/v1/collaborators/${encodeURIComponent(collaboratorId)}/tokens`
+  );
+  return data.tokens;
+}
+
+export async function issueCollaboratorToken(
+  collaboratorId: string,
+  body: { agent_ids?: string[]; ttl_days?: number }
+): Promise<{ token_id: string; token: string }> {
+  return vxFetch<{ token_id: string; token: string }>(
+    `/api/v1/collaborators/${encodeURIComponent(collaboratorId)}/tokens`,
+    { method: "POST", body: JSON.stringify(body) }
+  );
+}
+
+export async function revokeCollaboratorToken(
+  collaboratorId: string,
+  tokenId: string
+): Promise<void> {
+  await vxFetch<void>(
+    `/api/v1/collaborators/${encodeURIComponent(collaboratorId)}/tokens/${encodeURIComponent(tokenId)}`,
+    { method: "DELETE" }
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // Enterprise — Usage
 // ─────────────────────────────────────────────────────────────
