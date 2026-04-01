@@ -57,17 +57,39 @@
 
 ---
 
-## Planned — v2.3.0
+## Completed — v2.3.0 (Sprint 4)
 
-### Analytics
-- [ ] Cost forecasting — projected monthly spend
-- [ ] Per-agent efficiency score (output value / token cost)
-- [ ] Spend alerts — configurable daily budget threshold
-- [ ] Export reports (CSV / PDF)
+### Analytics (rewrite)
+- [x] Cost dashboard — hoje / ontem / este mês / tokens 30d
+- [x] Alerta de budget diário configurável (salvo em localStorage)
+- [x] Bar chart de custo diário (30 dias, div-based, sem deps extras)
+- [x] Tabela por Agente / por Modelo com eficiência (tok/call)
+- [x] Exportar CSV
+- [x] `/api/usage` proxy → `GET /api/v1/usage`
+
+### Settings (rewrite)
+- [x] 4 tabs: Agentes, Providers, Canais, Sistema
+- [x] Editor de agentes inline (nome, emoji, modelo, role)
+- [x] Providers com show/hide API key
+- [x] Canais (Telegram, Discord, Pico) enable/disable + token
+- [x] PATCH /api/config com feedback de sucesso/erro
+- [x] `/api/config` proxy (GET + PATCH)
 
 ### Knowledge Base
-- [ ] Document upload UI → VertexOS RAG ingestion (multipart/form-data → chunking pipeline)
-- [ ] Knowledge search playground (semantic similarity, not just ILIKE)
+- [x] Upload de documento (txt/md) → chunking automático por parágrafo (~800 chars)
+- [x] `POST /api/v1/knowledge/upload` backend handler
+- [x] `/api/knowledge/upload` proxy + modal de upload na página
+
+---
+
+## Planned — v2.4.0
+
+### Knowledge Base
+- [ ] Knowledge search playground (semantic similarity via pgvector)
+- [ ] Suporte a PDF/DOCX no upload (extração de texto)
+
+### Analytics
+- [ ] Projeção de custo mensal baseada em tendência dos últimos 7 dias
 
 ### Office 3D Improvements
 - [ ] Agent activity animations (typing, thinking, error states)
@@ -96,4 +118,4 @@
 
 ---
 
-*Version 2.2.0 — 2026-04-01*
+*Version 2.3.0 — 2026-04-01*

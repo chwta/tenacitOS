@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BookOpen, Search, Plus, Trash2, X, Check, RefreshCw, FileText } from "lucide-react";
+import { BookOpen, Search, Plus, Trash2, X, Check, RefreshCw, FileText, Upload } from "lucide-react";
 import { getKnowledge, createKnowledgeChunk, deleteKnowledgeChunk, KnowledgeChunk } from "@/lib/vertexos-client";
 
 const PAGE_SIZE = 30;
@@ -19,6 +19,11 @@ export default function KnowledgePage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState({ content: "", source_filename: "", scope: "", source_type: "manual" });
   const [saving, setSaving] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadScope, setUploadScope] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ inserted?: number; doc_id?: string; error?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -56,6 +61,28 @@ export default function KnowledgePage() {
     }
   };
 
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    setUploadResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", uploadFile);
+      fd.append("scope", uploadScope);
+      fd.append("source_type", "document");
+      const res = await fetch("/api/knowledge/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      setUploadResult(data);
+      if (res.ok) {
+        await load();
+      }
+    } catch {
+      setUploadResult({ error: "Erro de conexão" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     try {
       await deleteKnowledgeChunk(id);
@@ -79,6 +106,9 @@ export default function KnowledgePage() {
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button onClick={load} className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <RefreshCw style={{ width: "1rem", height: "1rem" }} />
+          </button>
+          <button onClick={() => { setShowUpload(true); setUploadResult(null); setUploadFile(null); setUploadScope(""); }} className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Upload style={{ width: "1rem", height: "1rem" }} /> Upload
           </button>
           <button onClick={() => setShowCreate(true)} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Plus style={{ width: "1rem", height: "1rem" }} /> Adicionar
@@ -194,6 +224,51 @@ export default function KnowledgePage() {
           </div>
         )}
       </div>
+
+      {/* Upload modal */}
+      {showUpload && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "1rem", padding: "2rem", width: "100%", maxWidth: "480px" }}>
+            <h2 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: "1.5rem" }}>Upload de Documento</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Arquivo *</label>
+                <input
+                  type="file"
+                  className="input"
+                  style={{ width: "100%" }}
+                  onChange={e => setUploadFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "block", marginBottom: "0.35rem" }}>Scope</label>
+                <input
+                  value={uploadScope}
+                  onChange={e => setUploadScope(e.target.value)}
+                  className="input"
+                  style={{ width: "100%" }}
+                  placeholder="Ex: engineering, hr"
+                />
+              </div>
+              {uploadResult && (
+                <div style={{ padding: "0.75rem 1rem", background: uploadResult.error ? "rgba(239,68,68,0.1)" : "rgba(16,185,129,0.1)", border: `1px solid ${uploadResult.error ? "var(--error)" : "#10b981"}`, borderRadius: "0.5rem", color: uploadResult.error ? "var(--error)" : "#10b981", fontSize: "0.875rem" }}>
+                  {uploadResult.error
+                    ? `Erro: ${uploadResult.error}`
+                    : `Inseridos: ${uploadResult.inserted ?? 0} chunks — doc_id: ${uploadResult.doc_id ?? "—"}`
+                  }
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", justifyContent: "flex-end" }}>
+              <button onClick={() => setShowUpload(false)} className="btn-secondary">Fechar</button>
+              <button onClick={handleUpload} disabled={uploading || !uploadFile} className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Upload style={{ width: "0.875rem", height: "0.875rem" }} />
+                {uploading ? "Enviando..." : "Enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create modal */}
       {showCreate && (
