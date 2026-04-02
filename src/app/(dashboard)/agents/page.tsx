@@ -101,14 +101,14 @@ export default function AgentsPage() {
           Agents
         </h1>
         <p style={{ color: "var(--text-secondary)", fontSize: "14px" }}>
-          Multi-agent system overview • {agents.length} agents configured
+          Visão geral do sistema multi-agente • {agents.length} agentes configurados
         </p>
       </div>
 
       {/* Tab switcher */}
       <div className="flex gap-2 mb-6 border-b" style={{ borderColor: "var(--border)" }}>
         {[
-          { id: "cards" as const, label: "Agent Cards", icon: LayoutGrid },
+          { id: "cards" as const, label: "Cards", icon: LayoutGrid },
           { id: "organigrama" as const, label: "Organigrama", icon: GitBranch },
         ].map(({ id, label, icon: Icon }) => (
           <button

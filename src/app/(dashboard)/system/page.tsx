@@ -160,10 +160,10 @@ export default function SystemMonitorPage() {
     );
   }
 
-  const cpuColor = systemData.cpu.usage < 60 ? "var(--success)" : systemData.cpu.usage < 85 ? "var(--warning)" : "var(--error)";
-  const ramPercent = (systemData.ram.used / systemData.ram.total) * 100;
+  const cpuColor = (systemData.cpu.usage ?? 0) < 60 ? "var(--success)" : (systemData.cpu.usage ?? 0) < 85 ? "var(--warning)" : "var(--error)";
+  const ramPercent = systemData.ram.total ? ((systemData.ram.used ?? 0) / systemData.ram.total) * 100 : 0;
   const ramColor = ramPercent < 60 ? "var(--success)" : ramPercent < 85 ? "var(--warning)" : "var(--error)";
-  const diskColor = systemData.disk.percent < 60 ? "var(--success)" : systemData.disk.percent < 85 ? "var(--warning)" : "var(--error)";
+  const diskColor = (systemData.disk.percent ?? 0) < 60 ? "var(--success)" : (systemData.disk.percent ?? 0) < 85 ? "var(--warning)" : "var(--error)";
 
   const activeServices = systemData.systemd.filter((s) => s.status === "active").length;
 
@@ -244,7 +244,7 @@ export default function SystemMonitorPage() {
             </div>
             <div className="flex justify-between text-sm" style={{ color: "var(--text-secondary)" }}>
               <span>Load Average</span>
-              <span>{systemData.cpu.loadAvg[0].toFixed(2)} / {systemData.cpu.loadAvg[1].toFixed(2)} / {systemData.cpu.loadAvg[2].toFixed(2)}</span>
+              <span>{(systemData.cpu.loadAvg?.[0] ?? 0).toFixed(2)} / {(systemData.cpu.loadAvg?.[1] ?? 0).toFixed(2)} / {(systemData.cpu.loadAvg?.[2] ?? 0).toFixed(2)}</span>
             </div>
           </div>
 
@@ -257,7 +257,7 @@ export default function SystemMonitorPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>RAM</h3>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{systemData.ram.used.toFixed(1)}GB / {systemData.ram.total.toFixed(1)}GB</p>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{(systemData.ram.used ?? 0).toFixed(1)}GB / {(systemData.ram.total ?? 0).toFixed(1)}GB</p>
                 </div>
               </div>
               <span className="text-2xl font-bold" style={{ color: ramColor }}>{ramPercent.toFixed(0)}%</span>
@@ -276,10 +276,10 @@ export default function SystemMonitorPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold" style={{ color: "var(--text-primary)" }}>Disk</h3>
-                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{systemData.disk.used.toFixed(1)}GB / {systemData.disk.total.toFixed(1)}GB</p>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)" }}>{(systemData.disk.used ?? 0).toFixed(1)}GB / {(systemData.disk.total ?? 0).toFixed(1)}GB</p>
                 </div>
               </div>
-              <span className="text-2xl font-bold" style={{ color: diskColor }}>{systemData.disk.percent.toFixed(0)}%</span>
+              <span className="text-2xl font-bold" style={{ color: diskColor }}>{(systemData.disk.percent ?? 0).toFixed(0)}%</span>
             </div>
             <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--card-elevated)" }}>
               <div className="h-full transition-all duration-500" style={{ width: `${systemData.disk.percent}%`, backgroundColor: diskColor }} />
@@ -303,14 +303,14 @@ export default function SystemMonitorPage() {
                   <ArrowDown className="w-4 h-4" style={{ color: "var(--success)" }} />
                   <span>RX (in)</span>
                 </div>
-                <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>{systemData.network.rx.toFixed(2)} MB/s</span>
+                <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>{(systemData.network.rx ?? 0).toFixed(2)} MB/s</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-secondary)" }}>
                   <ArrowUp className="w-4 h-4" style={{ color: "var(--accent)" }} />
                   <span>TX (out)</span>
                 </div>
-                <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>{systemData.network.tx.toFixed(2)} MB/s</span>
+                <span className="font-mono text-sm" style={{ color: "var(--text-primary)" }}>{(systemData.network.tx ?? 0).toFixed(2)} MB/s</span>
               </div>
               {/* Mini bar viz */}
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>

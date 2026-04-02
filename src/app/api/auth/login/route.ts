@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Simple in-memory rate limiter (per-IP, resets on server restart)
-// Sufficient for a personal dashboard — no external dependency needed
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const LOCKOUT_MS = 15 * 60 * 1000; // 15 minute lockout after max attempts
+// ─── Rate limiter config ──────────────────────────────────────────────────────
+const MAX_ATTEMPTS = 3;
+const WINDOW_MS = 15 * 60 * 1000;   // 15 minutes
+const LOCKOUT_MS = 15 * 60 * 1000;  // 15 minute lockout after max attempts
 
 interface AttemptRecord {
   count: number;
@@ -13,7 +12,9 @@ interface AttemptRecord {
   lockedUntil?: number;
 }
 
-const attempts = new Map<string, AttemptRecord>();
+// Separate counters per step per IP
+const usernameAttempts = new Map<string, AttemptRecord>();
+const passwordAttempts = new Map<string, AttemptRecord>();
 
 function getClientIp(request: NextRequest): string {
   return (
@@ -23,93 +24,148 @@ function getClientIp(request: NextRequest): string {
   );
 }
 
-function checkRateLimit(ip: string): { allowed: boolean; retryAfterMs?: number } {
+function checkRateLimit(
+  map: Map<string, AttemptRecord>,
+  ip: string
+): { allowed: boolean; retryAfterMs?: number } {
   const now = Date.now();
-  const record = attempts.get(ip);
+  const record = map.get(ip);
 
-  if (!record) {
-    return { allowed: true };
-  }
+  if (!record) return { allowed: true };
 
-  // Still locked out?
   if (record.lockedUntil && now < record.lockedUntil) {
     return { allowed: false, retryAfterMs: record.lockedUntil - now };
   }
 
-  // Window expired — reset
   if (now - record.windowStart > WINDOW_MS) {
-    attempts.delete(ip);
+    map.delete(ip);
     return { allowed: true };
   }
 
-  // Within window, check count
   if (record.count >= MAX_ATTEMPTS) {
-    // Lock out
     record.lockedUntil = now + LOCKOUT_MS;
-    attempts.set(ip, record);
+    map.set(ip, record);
     return { allowed: false, retryAfterMs: LOCKOUT_MS };
   }
 
   return { allowed: true };
 }
 
-function recordFailure(ip: string): void {
+function recordFailure(map: Map<string, AttemptRecord>, ip: string): number {
   const now = Date.now();
-  const record = attempts.get(ip);
+  const record = map.get(ip);
+  let count = 1;
 
   if (!record || now - record.windowStart > WINDOW_MS) {
-    attempts.set(ip, { count: 1, windowStart: now });
+    map.set(ip, { count: 1, windowStart: now });
   } else {
     record.count += 1;
-    attempts.set(ip, record);
+    count = record.count;
+    map.set(ip, record);
   }
+
+  return count;
 }
 
-function clearAttempts(ip: string): void {
-  attempts.delete(ip);
+function clearAttempts(map: Map<string, AttemptRecord>, ip: string): void {
+  map.delete(ip);
 }
 
+// ─── POST /api/auth/login ─────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
+  const body = await request.json();
+  const { step } = body;
 
-  // Rate limit check
-  const { allowed, retryAfterMs } = checkRateLimit(ip);
-  if (!allowed) {
-    const retryAfterSec = Math.ceil((retryAfterMs ?? LOCKOUT_MS) / 1000);
+  // ── Step 1: validate username ──────────────────────────────────────────────
+  if (step === "username") {
+    const { allowed, retryAfterMs } = checkRateLimit(usernameAttempts, ip);
+    if (!allowed) {
+      const secs = Math.ceil((retryAfterMs ?? LOCKOUT_MS) / 1000);
+      return NextResponse.json(
+        { success: false, error: "Muitas tentativas. Tente novamente em alguns minutos." },
+        { status: 429, headers: { "Retry-After": String(secs) } }
+      );
+    }
+
+    const { username } = body;
+    if (username === process.env.ADMIN_USERNAME) {
+      clearAttempts(usernameAttempts, ip);
+      // Set a short-lived cookie signaling username was verified
+      const res = NextResponse.json({ success: true });
+      res.cookies.set("auth_step", "username_ok", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 5 * 60, // 5 minutes to complete password step
+        path: "/",
+      });
+      return res;
+    }
+
+    const count = recordFailure(usernameAttempts, ip);
+    const remaining = MAX_ATTEMPTS - count;
     return NextResponse.json(
-      { success: false, error: "Too many failed attempts. Try again later." },
       {
-        status: 429,
-        headers: { "Retry-After": String(retryAfterSec) },
-      }
+        success: false,
+        error: remaining > 0
+          ? `Usuário incorreto. ${remaining} tentativa${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}.`
+          : "Usuário incorreto. Conta bloqueada temporariamente.",
+      },
+      { status: 401 }
     );
   }
 
-  const { password } = await request.json();
+  // ── Step 2: validate password ──────────────────────────────────────────────
+  if (step === "password") {
+    // Must have completed step 1
+    const stepCookie = request.cookies.get("auth_step");
+    if (!stepCookie || stepCookie.value !== "username_ok") {
+      return NextResponse.json(
+        { success: false, error: "Sessão inválida. Reinicie o login." },
+        { status: 400 }
+      );
+    }
 
-  if (password === process.env.ADMIN_PASSWORD) {
-    clearAttempts(ip); // Reset on success
+    const { allowed, retryAfterMs } = checkRateLimit(passwordAttempts, ip);
+    if (!allowed) {
+      const secs = Math.ceil((retryAfterMs ?? LOCKOUT_MS) / 1000);
+      return NextResponse.json(
+        { success: false, error: "Muitas tentativas. Tente novamente em alguns minutos." },
+        { status: 429, headers: { "Retry-After": String(secs) } }
+      );
+    }
 
-    const response = NextResponse.json({ success: true });
+    const { password } = body;
+    if (password === process.env.ADMIN_PASSWORD) {
+      clearAttempts(passwordAttempts, ip);
 
-    // Set auth cookie (7 days expiry)
-    // secure=true in production (HTTPS), false in dev (HTTP localhost)
-    response.cookies.set("mc_auth", process.env.AUTH_SECRET!, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    });
+      const res = NextResponse.json({ success: true });
+      // Clear step cookie
+      res.cookies.set("auth_step", "", { maxAge: 0, path: "/" });
+      // Set auth cookie
+      res.cookies.set("mc_auth", process.env.AUTH_SECRET!, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+      });
+      return res;
+    }
 
-    return response;
+    const count = recordFailure(passwordAttempts, ip);
+    const remaining = MAX_ATTEMPTS - count;
+    return NextResponse.json(
+      {
+        success: false,
+        error: remaining > 0
+          ? `Senha incorreta. ${remaining} tentativa${remaining > 1 ? "s" : ""} restante${remaining > 1 ? "s" : ""}.`
+          : "Senha incorreta. Conta bloqueada temporariamente.",
+      },
+      { status: 401 }
+    );
   }
 
-  // Record failed attempt
-  recordFailure(ip);
-
-  return NextResponse.json(
-    { success: false, error: "Invalid password" },
-    { status: 401 }
-  );
+  return NextResponse.json({ success: false, error: "Requisição inválida." }, { status: 400 });
 }
